@@ -1,0 +1,195 @@
+/* ─── Reset & base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface2: #222535;
+  --border: #2e3249;
+  --accent: #6c6ff7;
+  --accent-dim: #3a3d7a;
+  --text: #e2e4f0;
+  --text-dim: #8b8fa8;
+  --danger: #e05c5c;
+  --success: #4caf7d;
+  --radius: 8px;
+  --radius-sm: 5px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 32px 16px;
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 32px;
+}
+
+h1 span { color: var(--accent); }
+
+/* ─── Card sections ─────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  padding: 20px 24px;
+}
+
+.card-title {
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  margin-bottom: 18px;
+  text-transform: uppercase;
+}
+
+/* ─── Form rows ─────────────────────────────────────────────────────────────── */
+.form-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.form-row:last-child { margin-bottom: 0; }
+
+.form-label {
+  color: var(--text);
+  flex: 1;
+  font-size: 14px;
+}
+
+.form-sublabel {
+  color: var(--text-dim);
+  display: block;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* ─── Toggle switch ─────────────────────────────────────────────────────────── */
+.toggle-wrap {
+  flex-shrink: 0;
+  position: relative;
+}
+
+.toggle-wrap input[type="checkbox"] {
+  height: 0;
+  opacity: 0;
+  position: absolute;
+  width: 0;
+}
+
+.toggle-track {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  cursor: pointer;
+  display: block;
+  height: 24px;
+  transition: background 0.2s;
+  width: 44px;
+}
+
+.toggle-track::after {
+  background: var(--text-dim);
+  border-radius: 50%;
+  content: '';
+  display: block;
+  height: 16px;
+  left: 3px;
+  position: relative;
+  top: 3px;
+  transition: transform 0.2s, background 0.2s;
+  width: 16px;
+}
+
+input[type="checkbox"]:checked + .toggle-track {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+input[type="checkbox"]:checked + .toggle-track::after {
+  background: var(--accent);
+  transform: translateX(20px);
+}
+
+/* ─── Number inputs ─────────────────────────────────────────────────────────── */
+.num-input-wrap {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.form-input {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  padding: 6px 10px;
+  transition: border-color 0.15s;
+  width: 80px;
+}
+
+.form-input:focus { border-color: var(--accent); }
+
+.input-unit {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+/* ─── Storage buttons ───────────────────────────────────────────────────────── */
+.storage-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ─── Buttons ───────────────────────────────────────────────────────────────── */
+.btn {
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 16px;
+  transition: opacity 0.15s;
+}
+
+.btn:hover { opacity: 0.85; }
+.btn:active { opacity: 0.7; }
+
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-danger { background: var(--danger); color: #fff; }
+
+/* ─── Save row ──────────────────────────────────────────────────────────────── */
+.save-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.save-msg {
+  color: var(--success);
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.save-msg.visible { opacity: 1; }

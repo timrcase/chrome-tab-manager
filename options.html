@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tab Manager — Options</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div class="app">
+    <h1>Tab <span>Manager</span> — Options</h1>
+
+    <!-- Backup settings -->
+    <div class="card">
+      <div class="card-title">Backup</div>
+
+      <div class="form-row">
+        <label class="form-label" for="backupEnabled">
+          Enable periodic backup
+          <span class="form-sublabel">Automatically snapshot all open tabs on a schedule</span>
+        </label>
+        <div class="toggle-wrap">
+          <input type="checkbox" id="backupEnabled" />
+          <label class="toggle-track" for="backupEnabled"></label>
+        </div>
+      </div>
+
+      <div class="form-row" id="backupIntervalRow">
+        <label class="form-label" for="backupIntervalMinutes">
+          Backup interval
+          <span class="form-sublabel">Minimum 1 minute</span>
+        </label>
+        <div class="num-input-wrap">
+          <input type="number" id="backupIntervalMinutes" class="form-input" min="1" max="10080" step="1" />
+          <span class="input-unit">min</span>
+        </div>
+      </div>
+
+      <div class="form-row" id="backupMaxRow">
+        <label class="form-label" for="backupMaxSnapshots">
+          Max snapshots to keep
+          <span class="form-sublabel">Older snapshots are removed automatically</span>
+        </label>
+        <div class="num-input-wrap">
+          <input type="number" id="backupMaxSnapshots" class="form-input" min="1" max="100" step="1" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Archive settings -->
+    <div class="card">
+      <div class="card-title">Archive</div>
+
+      <div class="form-row">
+        <label class="form-label" for="archiveEnabled">
+          Archive tabs when closed
+          <span class="form-sublabel">Track all tabs closed by any means</span>
+        </label>
+        <div class="toggle-wrap">
+          <input type="checkbox" id="archiveEnabled" />
+          <label class="toggle-track" for="archiveEnabled"></label>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="archivePurgeDays">
+          Purge entries older than
+          <span class="form-sublabel">Set to 0 to keep archive entries forever</span>
+        </label>
+        <div class="num-input-wrap">
+          <input type="number" id="archivePurgeDays" class="form-input" min="0" max="3650" step="1" />
+          <span class="input-unit">days</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Storage management -->
+    <div class="card">
+      <div class="card-title">Storage</div>
+
+      <div class="storage-grid">
+        <button class="btn btn-secondary" id="exportData">Export all data</button>
+        <button class="btn btn-danger" id="clearSavedTabs">Clear saved tabs</button>
+        <button class="btn btn-danger" id="clearBackupList">Clear backups</button>
+        <button class="btn btn-danger" id="clearArchive">Clear archive</button>
+      </div>
+    </div>
+
+    <!-- Save -->
+    <div class="save-row">
+      <button class="btn btn-primary" id="saveSettings">Save settings</button>
+      <span class="save-msg" id="saveMsg">Settings saved!</span>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

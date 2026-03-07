@@ -3,7 +3,7 @@
   "name": "Tab Manager",
   "version": "1.0.0",
   "description": "Close, save, tag, backup, and archive your tabs.",
-  "permissions": ["tabs", "storage", "alarms", "omnibox"],
+  "permissions": ["tabs", "storage", "alarms", "omnibox", "tabGroups", "contextMenus"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"

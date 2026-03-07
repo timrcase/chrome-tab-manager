@@ -20,6 +20,17 @@ chrome.runtime.onInstalled.addListener(async () => {
   await warmTabCache();
   await rescheduleAlarms();
   chrome.omnibox.setDefaultSuggestion({ description: 'Type a go code to navigate' });
+  chrome.contextMenus.create({
+    id: 'openTabManager',
+    title: 'Open Tab Manager',
+    contexts: ['action'],
+  });
+});
+
+chrome.contextMenus.onClicked.addListener((info) => {
+  if (info.menuItemId === 'openTabManager') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('popup.html') });
+  }
 });
 
 chrome.runtime.onStartup.addListener(async () => {
@@ -198,16 +209,21 @@ async function runBackup() {
   const { settings = DEFAULT_SETTINGS } = await chrome.storage.local.get('settings');
   const maxSnapshots = settings.backupMaxSnapshots || 10;
 
-  const allTabs = await chrome.tabs.query({});
+  const [allTabs, allGroups] = await Promise.all([
+    chrome.tabs.query({}),
+    chrome.tabGroups.query({}),
+  ]);
   const snapshot = {
     id: crypto.randomUUID(),
     capturedAt: Date.now(),
+    groups: allGroups.map((g) => ({ id: g.id, title: g.title, color: g.color })),
     tabs: allTabs
       .filter((t) => t.url && !t.url.startsWith('chrome://') && !t.url.startsWith('chrome-extension://'))
       .map((t) => ({
         url: t.url,
         title: t.title || t.url,
         favIconUrl: t.favIconUrl || null,
+        groupId: t.groupId,
       })),
   };
 

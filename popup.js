@@ -302,7 +302,7 @@ function makeGoCodeEditor(tab) {
   input.placeholder = 'shortcode';
   input.style.width = '120px';
   input.maxLength = 20;
-  input.pattern = '[a-z0-9-]+';
+  input.pattern = '[a-z0-9\\-]+';
 
   const saveBtn = document.createElement('button');
   saveBtn.className = 'btn btn-secondary btn-sm';
@@ -473,9 +473,25 @@ function makeSnapshotCard(snapshot) {
   if (snapshot.tabs.length === 0) {
     tabsEl.innerHTML = '<div style="color:var(--text-dim);padding:8px 0;font-size:13px">No tabs captured.</div>';
   } else {
+    const groupMap = new Map((snapshot.groups || []).map((g) => [g.id, g]));
+    let lastGroupId = undefined;
+
     snapshot.tabs.forEach((t) => {
+      const groupId = t.groupId ?? -1;
+
+      if (groupId !== -1 && groupId !== lastGroupId) {
+        const group = groupMap.get(groupId);
+        const groupHeader = document.createElement('div');
+        groupHeader.className = `snapshot-group-header snapshot-group-${group?.color || 'grey'}`;
+        groupHeader.textContent = group?.title || 'Unnamed group';
+        tabsEl.appendChild(groupHeader);
+      } else if (groupId === -1 && lastGroupId !== -1 && lastGroupId !== undefined) {
+        // Transitioning out of a group — no header needed, just reset
+      }
+      lastGroupId = groupId;
+
       const row = document.createElement('div');
-      row.className = 'snapshot-tab-row';
+      row.className = groupId !== -1 ? 'snapshot-tab-row snapshot-tab-row--grouped' : 'snapshot-tab-row';
 
       row.appendChild(makeFavicon(t.favIconUrl, t.title));
 

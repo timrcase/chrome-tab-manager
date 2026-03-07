@@ -406,6 +406,26 @@ body {
 
 .snapshot-tab-row:hover { background: var(--surface2); }
 
+.snapshot-tab-row--grouped { padding-left: 14px; }
+
+.snapshot-group-header {
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 6px;
+  padding: 3px 8px;
+}
+
+.snapshot-group-grey   { background: #5f6368; color: #fff; }
+.snapshot-group-blue   { background: #1a73e8; color: #fff; }
+.snapshot-group-red    { background: #d93025; color: #fff; }
+.snapshot-group-yellow { background: #f9ab00; color: #1a1a1a; }
+.snapshot-group-green  { background: #1e8e3e; color: #fff; }
+.snapshot-group-pink   { background: #e91e8c; color: #fff; }
+.snapshot-group-purple { background: #7b1fa2; color: #fff; }
+.snapshot-group-cyan   { background: #007b83; color: #fff; }
+.snapshot-group-orange { background: #e8710a; color: #fff; }
+
 .snapshot-tab-title {
   flex: 1;
   overflow: hidden;

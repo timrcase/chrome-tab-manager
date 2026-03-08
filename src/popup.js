@@ -132,6 +132,10 @@ function renderSaved() {
   const container = document.getElementById('savedList');
   const filtered = filterSaved();
 
+  const expandedIds = new Set(
+    [...container.querySelectorAll('.item-card.expanded')].map((el) => el.dataset.id)
+  );
+
   if (filtered.length === 0) {
     const msg = state.savedTabs.length === 0
       ? 'No saved tabs yet.<br>Click the extension icon to save &amp; close a tab.'
@@ -143,7 +147,9 @@ function renderSaved() {
   container.innerHTML = '';
   // Show newest first
   [...filtered].reverse().forEach((tab) => {
-    container.appendChild(makeSavedCard(tab));
+    const card = makeSavedCard(tab);
+    if (expandedIds.has(tab.id)) card.classList.add('expanded');
+    container.appendChild(card);
   });
 }
 

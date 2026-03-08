@@ -455,13 +455,23 @@ function makeSnapshotCard(snapshot) {
   expandIcon.className = 'expand-icon';
   expandIcon.textContent = '▾';
 
+  const restoreBtn = document.createElement('button');
+  restoreBtn.className = 'btn btn-ghost btn-sm';
+  restoreBtn.textContent = 'Restore all';
+  restoreBtn.onclick = async (e) => {
+    e.stopPropagation();
+    if (!confirm(`Open all ${snapshot.tabs.length} tab${snapshot.tabs.length !== 1 ? 's' : ''} in a new window?`)) return;
+    await send({ action: 'restoreSnapshot', id: snapshot.id });
+  };
+
   header.appendChild(time);
   header.appendChild(count);
   header.appendChild(spacer);
+  header.appendChild(restoreBtn);
   header.appendChild(deleteBtn);
   header.appendChild(expandIcon);
   header.onclick = (e) => {
-    if (e.target === deleteBtn) return;
+    if (e.target === restoreBtn || e.target === deleteBtn) return;
     card.classList.toggle('expanded');
   };
   card.appendChild(header);

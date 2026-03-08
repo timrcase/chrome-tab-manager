@@ -281,6 +281,42 @@ async function handleMessage(msg) {
       return { ok: true };
     }
 
+    case 'restoreSnapshot': {
+      const { backupList = [] } = await chrome.storage.local.get('backupList');
+      const snapshot = backupList.find((s) => s.id === msg.id);
+      if (!snapshot || snapshot.tabs.length === 0) return { ok: false };
+
+      const urls = snapshot.tabs.map((t) => t.url);
+      const win = await chrome.windows.create({ url: urls, focused: true });
+
+      if (snapshot.groups?.length && win.tabs?.length) {
+        const groupMeta = new Map(snapshot.groups.map((g) => [g.id, g]));
+        const groupTabs = new Map();
+        snapshot.tabs.forEach((t, i) => {
+          const gid = t.groupId ?? -1;
+          if (gid !== -1) {
+            if (!groupTabs.has(gid)) groupTabs.set(gid, []);
+            groupTabs.get(gid).push(win.tabs[i].id);
+          }
+        });
+        for (const [origId, tabIds] of groupTabs) {
+          const meta = groupMeta.get(origId);
+          const newGroupId = await chrome.tabs.group({ tabIds, createProperties: { windowId: win.id } });
+          if (meta) {
+            const updateProps = { color: meta.color };
+            if (meta.title) updateProps.title = meta.title;
+            try {
+              await chrome.tabGroups.update(newGroupId, updateProps);
+            } catch (err) {
+              console.error('tabGroups.update failed:', err.message);
+            }
+          }
+        }
+      }
+
+      return { ok: true };
+    }
+
     case 'deleteBackupSnapshot': {
       const { backupList = [] } = await chrome.storage.local.get('backupList');
       const filtered = backupList.filter((s) => s.id !== msg.id);

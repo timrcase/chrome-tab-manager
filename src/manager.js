@@ -220,43 +220,36 @@ function makeTagEditor(tab) {
   const val = document.createElement('div');
   val.className = 'detail-value';
 
-  const tagList = document.createElement('div');
-  tagList.className = 'tag-list';
+  const area = document.createElement('div');
+  area.className = 'tag-input-area';
 
-  const renderTags = () => {
-    tagList.innerHTML = '';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'tag-inline-input';
+  input.maxLength = 30;
+  area.appendChild(input);
+
+  const renderInlineTags = () => {
+    area.querySelectorAll('.tag-removable').forEach((el) => el.remove());
     (tab.tags || []).forEach((tag) => {
-      const pill = document.createElement('span');
-      pill.className = 'tag-removable';
-      pill.innerHTML = `${escapeHtml(tag)} <button class="tag-remove-btn" title="Remove tag">×</button>`;
-      pill.querySelector('.tag-remove-btn').onclick = async (e) => {
+      const chip = document.createElement('span');
+      chip.className = 'tag-removable';
+      chip.innerHTML = `${escapeHtml(tag)} <button class="tag-remove-btn" title="Remove tag">×</button>`;
+      chip.querySelector('.tag-remove-btn').onclick = async (e) => {
         e.stopPropagation();
         tab.tags = tab.tags.filter((t) => t !== tag);
         await send({ action: 'updateSavedTab', id: tab.id, patch: { tags: tab.tags } });
-        renderTags();
+        renderInlineTags();
         renderTagFilters();
         renderCounts();
       };
-      tagList.appendChild(pill);
+      area.insertBefore(chip, input);
     });
+    input.placeholder = (tab.tags || []).length ? '' : 'Add tags…';
   };
-  renderTags();
-  val.appendChild(tagList);
+  renderInlineTags();
 
-  // Add tag input
-  const addRow = document.createElement('div');
-  addRow.style.display = 'flex';
-  addRow.style.gap = '6px';
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'inline-input';
-  input.placeholder = 'Add tag…';
-  input.style.width = '140px';
-  input.maxLength = 30;
-
-  const addBtn = document.createElement('button');
-  addBtn.className = 'btn btn-secondary btn-sm';
-  addBtn.textContent = 'Add';
+  area.onclick = () => input.focus();
 
   const doAdd = async () => {
     const newTag = input.value.trim().toLowerCase();
@@ -264,16 +257,25 @@ function makeTagEditor(tab) {
     tab.tags = [...(tab.tags || []), newTag];
     await send({ action: 'updateSavedTab', id: tab.id, patch: { tags: tab.tags } });
     input.value = '';
-    renderTags();
+    renderInlineTags();
     renderTagFilters();
   };
 
-  addBtn.onclick = doAdd;
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doAdd(); });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab' || e.key === 'Enter') {
+      e.preventDefault();
+      doAdd();
+    } else if (e.key === 'Backspace' && e.target.value === '') {
+      if ((tab.tags || []).length) {
+        tab.tags = tab.tags.slice(0, -1);
+        send({ action: 'updateSavedTab', id: tab.id, patch: { tags: tab.tags } });
+        renderInlineTags();
+        renderTagFilters();
+      }
+    }
+  });
 
-  addRow.appendChild(input);
-  addRow.appendChild(addBtn);
-  val.appendChild(addRow);
+  val.appendChild(area);
   row.appendChild(val);
   return row;
 }

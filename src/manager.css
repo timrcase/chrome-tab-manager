@@ -263,7 +263,31 @@ body {
 
 .detail-value { flex: 1; }
 
-.tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.tag-input-area {
+  align-items: center;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: text;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 34px;
+  padding: 4px 8px;
+}
+
+.tag-input-area:focus-within { border-color: var(--accent); }
+
+.tag-inline-input {
+  background: none;
+  border: none;
+  color: var(--text);
+  flex: 1;
+  font-size: 13px;
+  min-width: 80px;
+  outline: none;
+  padding: 2px 0;
+}
 
 .tag-removable {
   align-items: center;

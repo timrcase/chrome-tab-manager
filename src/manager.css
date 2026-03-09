@@ -107,7 +107,7 @@ body {
 .tag-filter-area {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
   margin-bottom: 16px;
   align-items: center;
 }
@@ -118,14 +118,16 @@ body {
   margin-right: 4px;
 }
 
+#tagChips { display: contents; }
+
 .tag-chip {
   background: var(--tag-bg);
   border: 1px solid var(--border);
   border-radius: 20px;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 12px;
-  padding: 3px 10px;
+  font-size: 11px;
+  padding: 2px 8px;
   transition: all 0.15s;
   user-select: none;
 }
@@ -223,6 +225,7 @@ body {
 
 .tag-pill {
   background: var(--tag-bg);
+  border: 1px solid var(--border);
   border-radius: 20px;
   color: var(--text-dim);
   font-size: 11px;

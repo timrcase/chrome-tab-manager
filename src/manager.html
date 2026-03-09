@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tab Manager</title>
+  <link rel="stylesheet" href="manager.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1 class="app-title">Tab <span>Manager</span></h1>
+      <div class="header-actions">
+        <button class="options-link" id="openOptions">⚙ Options</button>
+      </div>
+    </header>
+
+    <!-- Tab navigation -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="saved">
+        Saved <span class="tab-badge" id="savedCount">0</span>
+      </button>
+      <button class="tab-btn" data-tab="backup">
+        Backup <span class="tab-badge" id="backupCount">0</span>
+      </button>
+      <button class="tab-btn" data-tab="archive">
+        Archive <span class="tab-badge" id="archiveCount">0</span>
+      </button>
+    </nav>
+
+    <!-- Saved tabs section -->
+    <section class="section active" id="section-saved">
+      <div class="section-header">
+        <span class="section-title">Saved Tabs</span>
+      </div>
+
+      <!-- Tag filter chips -->
+      <div class="tag-filter-area" id="tagFilterArea" style="display:none">
+        <span class="tag-filter-label">Filter:</span>
+        <div id="tagChips"></div>
+        <button class="btn btn-ghost btn-sm" id="clearTagFilter" style="display:none">Clear filters</button>
+      </div>
+
+      <div id="savedList" class="item-list">
+        <div class="empty-state">No saved tabs yet.<br>Click the extension icon to save a tab.</div>
+      </div>
+    </section>
+
+    <!-- Backup section -->
+    <section class="section" id="section-backup">
+      <div class="section-header">
+        <span class="section-title">Tab Backups</span>
+        <button class="btn btn-secondary btn-sm" id="runBackupNow">Backup now</button>
+      </div>
+      <div id="backupList">
+        <div class="empty-state">No backups yet.<br>Configure backup interval in Options.</div>
+      </div>
+    </section>
+
+    <!-- Archive section -->
+    <section class="section" id="section-archive">
+      <div class="section-header">
+        <span class="section-title">Closed Tabs Archive</span>
+        <button class="btn btn-danger btn-sm" id="clearArchive">Clear all</button>
+      </div>
+      <p class="archive-purge-note" id="archivePurgeNote"></p>
+      <div id="archiveList" class="item-list">
+        <div class="empty-state">No archived tabs.</div>
+      </div>
+    </section>
+  </div>
+
+  <script src="manager.js"></script>
+</body>
+</html>

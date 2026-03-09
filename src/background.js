@@ -29,7 +29,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 chrome.contextMenus.onClicked.addListener((info) => {
   if (info.menuItemId === 'openTabManager') {
-    chrome.tabs.create({ url: chrome.runtime.getURL('popup.html') });
+    chrome.tabs.create({ url: chrome.runtime.getURL('manager.html') });
   }
 });
 
@@ -109,34 +109,6 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   const { archiveList = [] } = await chrome.storage.local.get('archiveList');
   archiveList.push(entry);
   await chrome.storage.local.set({ archiveList });
-});
-
-// ─── Toolbar button: save and close ─────────────────────────────────────────
-chrome.action.onClicked.addListener(async (tab) => {
-  if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
-    return;
-  }
-
-  const entry = {
-    id: crypto.randomUUID(),
-    url: tab.url,
-    title: tab.title || tab.url,
-    favIconUrl: tab.favIconUrl || null,
-    tags: [],
-    goCode: null,
-    savedAt: Date.now(),
-  };
-
-  const { savedTabs = [] } = await chrome.storage.local.get('savedTabs');
-  savedTabs.push(entry);
-  await chrome.storage.local.set({ savedTabs });
-
-  // Mark as extension-closed so onRemoved skips archiving
-  tabsClosedByExtension.add(tab.id);
-  await chrome.tabs.remove(tab.id);
-
-  // Open the Tab Manager UI
-  chrome.tabs.create({ url: chrome.runtime.getURL('popup.html') });
 });
 
 // ─── Omnibox ─────────────────────────────────────────────────────────────────
@@ -359,6 +331,28 @@ async function handleMessage(msg) {
 
     case 'runBackupNow': {
       await runBackup();
+      return { ok: true };
+    }
+
+    case 'saveCurrentTab': {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+        return { ok: false, reason: 'unsaveable' };
+      }
+      const entry = {
+        id: crypto.randomUUID(),
+        url: tab.url,
+        title: tab.title || tab.url,
+        favIconUrl: tab.favIconUrl || null,
+        tags: msg.tags || [],
+        goCode: msg.goCode || null,
+        savedAt: Date.now(),
+      };
+      const { savedTabs = [] } = await chrome.storage.local.get('savedTabs');
+      savedTabs.push(entry);
+      await chrome.storage.local.set({ savedTabs });
+      tabsClosedByExtension.add(tab.id);
+      await chrome.tabs.remove(tab.id);
       return { ok: true };
     }
 

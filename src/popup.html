@@ -2,72 +2,45 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tab Manager</title>
+  <title>Save Tab</title>
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <div class="app">
-    <header class="app-header">
-      <h1 class="app-title">Tab <span>Manager</span></h1>
-      <div class="header-actions">
-        <button class="options-link" id="openOptions">⚙ Options</button>
+  <div class="sp-wrap">
+    <div class="sp-preview" id="spPreview">
+      <div id="spFavicon"></div>
+      <div class="sp-preview-info">
+        <div class="sp-preview-title" id="spTitle"></div>
+        <div class="sp-preview-url" id="spUrl"></div>
       </div>
-    </header>
+    </div>
 
-    <!-- Tab navigation -->
-    <nav class="tab-nav">
-      <button class="tab-btn active" data-tab="saved">
-        Saved <span class="tab-badge" id="savedCount">0</span>
-      </button>
-      <button class="tab-btn" data-tab="backup">
-        Backup <span class="tab-badge" id="backupCount">0</span>
-      </button>
-      <button class="tab-btn" data-tab="archive">
-        Archive <span class="tab-badge" id="archiveCount">0</span>
-      </button>
-    </nav>
+    <div class="sp-unsaveable" id="spUnsaveable" style="display:none">
+      This page can't be saved.
+    </div>
 
-    <!-- Saved tabs section -->
-    <section class="section active" id="section-saved">
-      <div class="section-header">
-        <span class="section-title">Saved Tabs</span>
+    <div id="spForm" style="display:none">
+      <div class="sp-field">
+        <label class="sp-label">Tags</label>
+        <div id="spTagList" class="sp-tag-list"></div>
+        <div class="sp-row">
+          <input type="text" class="sp-input" id="spTagInput" placeholder="Add tag…" maxlength="30" />
+          <button class="sp-btn-secondary" id="spTagAddBtn">Add</button>
+        </div>
       </div>
-
-      <!-- Tag filter chips -->
-      <div class="tag-filter-area" id="tagFilterArea" style="display:none">
-        <span class="tag-filter-label">Filter:</span>
-        <div id="tagChips"></div>
-        <button class="btn btn-ghost btn-sm" id="clearTagFilter" style="display:none">Clear filters</button>
+      <div class="sp-field">
+        <label class="sp-label">Go code</label>
+        <div class="sp-row">
+          <span class="sp-prefix">go </span>
+          <input type="text" class="sp-input" id="spGoInput" placeholder="shortcode" maxlength="20" />
+        </div>
       </div>
-
-      <div id="savedList" class="item-list">
-        <div class="empty-state">No saved tabs yet.<br>Click the extension icon to save &amp; close a tab.</div>
+      <div class="sp-footer">
+        <button class="sp-btn-ghost" id="spViewBtn">View saved tabs ↗</button>
+        <button class="sp-btn-primary" id="spSaveBtn">Save &amp; Close</button>
       </div>
-    </section>
-
-    <!-- Backup section -->
-    <section class="section" id="section-backup">
-      <div class="section-header">
-        <span class="section-title">Tab Backups</span>
-        <button class="btn btn-secondary btn-sm" id="runBackupNow">Backup now</button>
-      </div>
-      <div id="backupList">
-        <div class="empty-state">No backups yet.<br>Configure backup interval in Options.</div>
-      </div>
-    </section>
-
-    <!-- Archive section -->
-    <section class="section" id="section-archive">
-      <div class="section-header">
-        <span class="section-title">Closed Tabs Archive</span>
-        <button class="btn btn-danger btn-sm" id="clearArchive">Clear all</button>
-      </div>
-      <p class="archive-purge-note" id="archivePurgeNote"></p>
-      <div id="archiveList" class="item-list">
-        <div class="empty-state">No archived tabs.</div>
-      </div>
-    </section>
+      <div class="sp-error" id="spError" style="display:none"></div>
+    </div>
   </div>
 
   <script src="popup.js"></script>

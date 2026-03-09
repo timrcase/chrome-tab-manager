@@ -88,7 +88,31 @@ body {
 .sp-label { font-size: 12px; color: var(--text-dim); font-weight: 500; }
 
 /* ─── Tags ──────────────────────────────────────────────────────────────────── */
-.sp-tag-list { display: flex; flex-wrap: wrap; gap: 4px; min-height: 4px; }
+.sp-tag-input-area {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: text;
+  min-height: 34px;
+  padding: 4px 8px;
+}
+
+.sp-tag-input-area:focus-within { border-color: var(--accent); }
+
+.sp-tag-inline-input {
+  background: none;
+  border: none;
+  color: var(--text);
+  flex: 1;
+  font-size: 13px;
+  min-width: 80px;
+  outline: none;
+  padding: 2px 0;
+}
 
 .sp-tag-chip {
   display: flex;

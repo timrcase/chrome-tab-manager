@@ -19,18 +19,21 @@ function makePlaceholder(title) {
 }
 
 function renderTags() {
-  const list = document.getElementById('spTagList');
-  list.innerHTML = '';
+  const area = document.getElementById('spTagArea');
+  const input = document.getElementById('spTagInput');
+  area.querySelectorAll('.sp-tag-chip').forEach(el => el.remove());
   pendingTags.forEach((tag, i) => {
     const chip = document.createElement('span');
     chip.className = 'sp-tag-chip';
     chip.innerHTML = `${tag} <button class="sp-tag-remove" title="Remove">×</button>`;
-    chip.querySelector('.sp-tag-remove').onclick = () => {
+    chip.querySelector('.sp-tag-remove').onclick = (e) => {
+      e.stopPropagation();
       pendingTags.splice(i, 1);
       renderTags();
     };
-    list.appendChild(chip);
+    area.insertBefore(chip, input);
   });
+  input.placeholder = pendingTags.length ? '' : 'Add tags…';
 }
 
 function addTag() {
@@ -41,7 +44,6 @@ function addTag() {
     renderTags();
   }
   input.value = '';
-  input.focus();
 }
 
 async function init() {
@@ -63,9 +65,15 @@ async function init() {
   document.getElementById('spForm').style.display = '';
 
   // Tag controls
-  document.getElementById('spTagAddBtn').onclick = addTag;
+  document.getElementById('spTagArea').onclick = () => document.getElementById('spTagInput').focus();
   document.getElementById('spTagInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); addTag(); }
+    if (e.key === 'Tab' || e.key === 'Enter') {
+      e.preventDefault();
+      addTag();
+    } else if (e.key === 'Backspace' && e.target.value === '') {
+      pendingTags.pop();
+      renderTags();
+    }
   });
 
   // Save button

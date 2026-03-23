@@ -538,6 +538,33 @@ function makeSnapshotCard(snapshot) {
 }
 
 // ─── Archive section ──────────────────────────────────────────────────────────
+function getTimeBucket(ms) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const entryDay = new Date(new Date(ms).getFullYear(), new Date(ms).getMonth(), new Date(ms).getDate());
+  const diffDays = Math.round((today - entryDay) / 86400000);
+
+  if (diffDays === 0) return { key: 0, label: 'Today' };
+  if (diffDays === 1) return { key: 1, label: 'Yesterday' };
+
+  const dow = today.getDay();
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+  if (entryDay >= startOfWeek) return { key: 2, label: 'This Week' };
+
+  const startOfLastWeek = new Date(startOfWeek);
+  startOfLastWeek.setDate(startOfWeek.getDate() - 7);
+  if (entryDay >= startOfLastWeek) return { key: 3, label: 'Last Week' };
+
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  if (entryDay >= startOfMonth) return { key: 4, label: 'This Month' };
+
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  if (entryDay >= startOfLastMonth) return { key: 5, label: 'Last Month' };
+
+  return { key: 6, label: 'Older' };
+}
+
 function renderArchive() {
   const container = document.getElementById('archiveList');
   const noteEl = document.getElementById('archivePurgeNote');
@@ -553,8 +580,16 @@ function renderArchive() {
   }
 
   container.innerHTML = '';
-  // Newest first
+  let lastBucketKey = null;
   [...state.archiveList].reverse().forEach((entry) => {
+    const bucket = getTimeBucket(entry.closedAt);
+    if (bucket.key !== lastBucketKey) {
+      const header = document.createElement('div');
+      header.className = 'archive-group-header';
+      header.textContent = bucket.label;
+      container.appendChild(header);
+      lastBucketKey = bucket.key;
+    }
     container.appendChild(makeArchiveCard(entry, purgeDays));
   });
 }
@@ -597,7 +632,12 @@ function makeArchiveCard(entry, purgeDays) {
   const restoreBtn = document.createElement('button');
   restoreBtn.className = 'btn btn-ghost btn-sm';
   restoreBtn.textContent = 'Restore';
-  restoreBtn.onclick = () => send({ action: 'restoreBackupTab', url: entry.url });
+  restoreBtn.onclick = async () => {
+    await send({ action: 'restoreBackupTab', url: entry.url });
+    await send({ action: 'deleteArchiveEntry', id: entry.id });
+    state.archiveList = state.archiveList.filter((e) => e.id !== entry.id);
+    render();
+  };
   meta.appendChild(restoreBtn);
 
   const deleteBtn = document.createElement('button');

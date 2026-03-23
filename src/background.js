@@ -328,7 +328,15 @@ async function handleMessage(msg) {
     }
 
     case 'updateSettings': {
-      await chrome.storage.local.set({ settings: msg.settings });
+      const s = msg.settings || {};
+      const validated = {
+        backupEnabled: Boolean(s.backupEnabled),
+        backupIntervalMinutes: Math.max(1, parseInt(s.backupIntervalMinutes) || DEFAULT_SETTINGS.backupIntervalMinutes),
+        backupMaxSnapshots: Math.max(1, parseInt(s.backupMaxSnapshots) || DEFAULT_SETTINGS.backupMaxSnapshots),
+        archiveEnabled: Boolean(s.archiveEnabled),
+        archivePurgeDays: Math.max(0, parseInt(s.archivePurgeDays) || DEFAULT_SETTINGS.archivePurgeDays),
+      };
+      await chrome.storage.local.set({ settings: validated });
       await rescheduleAlarms();
       return { ok: true };
     }

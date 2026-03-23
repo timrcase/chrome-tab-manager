@@ -25,8 +25,13 @@ function renderTags() {
   pendingTags.forEach((tag, i) => {
     const chip = document.createElement('span');
     chip.className = 'sp-tag-chip';
-    chip.innerHTML = `${tag} <button class="sp-tag-remove" title="Remove">×</button>`;
-    chip.querySelector('.sp-tag-remove').onclick = (e) => {
+    chip.textContent = tag;
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'sp-tag-remove';
+    removeBtn.title = 'Remove';
+    removeBtn.textContent = '×';
+    chip.appendChild(removeBtn);
+    removeBtn.onclick = (e) => {
       e.stopPropagation();
       pendingTags.splice(i, 1);
       renderTags();

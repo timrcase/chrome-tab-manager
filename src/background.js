@@ -362,7 +362,11 @@ async function handleMessage(msg) {
       };
       const { savedTabs = [] } = await chrome.storage.local.get('savedTabs');
       savedTabs.push(entry);
-      await chrome.storage.local.set({ savedTabs });
+      try {
+        await chrome.storage.local.set({ savedTabs });
+      } catch (err) {
+        return { ok: false, reason: 'storage_full' };
+      }
       tabsClosedByExtension.add(tab.id);
       await chrome.tabs.remove(tab.id);
       return { ok: true };

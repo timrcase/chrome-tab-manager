@@ -98,7 +98,9 @@ async function init() {
       window.close();
     } else {
       const err = document.getElementById('spError');
-      err.textContent = 'Could not save this tab.';
+      err.textContent = res?.reason === 'storage_full'
+        ? 'Storage is full. Free up space by deleting saved tabs.'
+        : 'Could not save this tab.';
       err.style.display = 'block';
       saveBtn.disabled = false;
       saveBtn.textContent = 'Save & Close';

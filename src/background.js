@@ -297,7 +297,11 @@ async function handleMessage(msg) {
     }
 
     case 'restoreBackupTab': {
-      chrome.tabs.create({ url: msg.url, active: true });
+      const url = msg.url;
+      if (!url || (!url.startsWith('https://') && !url.startsWith('http://'))) {
+        return { ok: false, error: 'Invalid URL' };
+      }
+      chrome.tabs.create({ url, active: true });
       return { ok: true };
     }
 

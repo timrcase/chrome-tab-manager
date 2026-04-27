@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-04-26T00:00:00.000Z",
+  "title": "Design System: Tab Manager",
+  "extensions": {
+    "colorMeta": {
+      "phosphor-green": {
+        "role": "primary",
+        "displayName": "Phosphor Green",
+        "canonical": "oklch(68% 0.14 145)",
+        "tonalRamp": ["#090e09", "#0f1e10", "#163519", "#1e4a22", "#2a6832", "#3dba6e", "#76d49a", "#c0ead2"]
+      },
+      "phosphor-dim": {
+        "role": "primary-surface",
+        "displayName": "Phosphor Dim",
+        "canonical": "oklch(22% 0.07 145)",
+        "tonalRamp": ["#060c07", "#0c180d", "#132214", "#1a3a22", "#25542f", "#33763f", "#5aaa6a", "#a2d8ae"]
+      },
+      "terminal-black": {
+        "role": "neutral-bg",
+        "displayName": "Terminal Black",
+        "canonical": "oklch(7% 0.007 145)",
+        "tonalRamp": ["#050705", "#0a0c0a", "#0d0f0d", "#131613", "#1a1d1a", "#262c26", "#394239", "#556155"]
+      },
+      "surface-1": {
+        "role": "neutral-surface",
+        "displayName": "Surface One",
+        "canonical": "oklch(11% 0.010 145)",
+        "tonalRamp": ["#060908", "#0c120c", "#131a13", "#1a241a", "#253025", "#333f33", "#4d5e4d", "#788e78"]
+      },
+      "surface-2": {
+        "role": "neutral-surface-elevated",
+        "displayName": "Surface Two",
+        "canonical": "oklch(14% 0.012 145)",
+        "tonalRamp": ["#08100a", "#0f190f", "#182018", "#202c20", "#2c3c2c", "#3d513d", "#5e745e", "#8da48d"]
+      },
+      "terminal-border": {
+        "role": "neutral-border",
+        "displayName": "Terminal Border",
+        "canonical": "oklch(17% 0.015 145)",
+        "tonalRamp": ["#09100a", "#111c12", "#1e2d1e", "#28402a", "#355638", "#476f4a", "#6a9e6d", "#a8cba9"]
+      },
+      "text-primary": {
+        "role": "neutral-text",
+        "displayName": "Text Primary",
+        "canonical": "oklch(93% 0.04 145)",
+        "tonalRamp": ["#1c381e", "#2c5430", "#3d7042", "#558c58", "#6ea870", "#96c496", "#bdd9bd", "#dff0df"]
+      },
+      "text-muted": {
+        "role": "neutral-text-dim",
+        "displayName": "Text Muted",
+        "canonical": "oklch(60% 0.06 145)",
+        "tonalRamp": ["#142015", "#213325", "#305038", "#456c4c", "#5a8861", "#7a9a7a", "#a0bc9e", "#ccdeca"]
+      },
+      "tag-well": {
+        "role": "neutral-surface-chip",
+        "displayName": "Tag Well",
+        "canonical": "oklch(16% 0.010 145)",
+        "tonalRamp": ["#070d08", "#0f180f", "#1a2a1a", "#243824", "#304830", "#425a42", "#637e63", "#96a896"]
+      },
+      "danger-red": {
+        "role": "semantic-danger",
+        "displayName": "Danger Red",
+        "canonical": "oklch(58% 0.18 20)",
+        "tonalRamp": ["#2a0a0a", "#421212", "#5d1e1e", "#7a2b2b", "#9c3e3e", "#c05050", "#d95555", "#f09090"]
+      }
+    },
+    "typographyMeta": {
+      "title": { "displayName": "Title", "purpose": "App title in manager header. Appears once per view." },
+      "body": { "displayName": "Body", "purpose": "Tab titles, form labels, interactive elements." },
+      "label": { "displayName": "Label", "purpose": "Uppercase section headers (SAVED TABS, BACKUP)." },
+      "mono": { "displayName": "Mono", "purpose": "Go-codes, keyboard hints, timestamps. Terminal-domain content only." }
+    },
+    "shadows": [
+      {
+        "name": "overlay",
+        "value": "0 2px 8px rgba(0, 0, 0, 0.65)",
+        "purpose": "Floating overlays (tooltip, dropdown) that must read as elevated above a card surface. Not for cards or list items."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-change",
+        "value": "150ms ease",
+        "purpose": "Default for all state transitions: border-color, color, opacity. Never slower. Never for layout properties."
+      }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary action. Phosphor Green fill with Terminal Black text. Used for Save & Close, Backup Now.",
+      "html": "<button class=\"ds-btn-primary\">Save &amp; Close</button>",
+      "css": ".ds-btn-primary { background: #3dba6e; color: #0d0f0d; border: none; border-radius: 5px; padding: 7px 14px; font-size: 13px; font-weight: 500; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; cursor: pointer; transition: opacity 0.15s; } .ds-btn-primary:hover { opacity: 0.9; } .ds-btn-primary:active { opacity: 0.75; } .ds-btn-primary:disabled { opacity: 0.5; cursor: default; } .ds-btn-primary:focus-visible { outline: 2px solid #3dba6e; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Secondary action. Surface Two background, Terminal Border stroke. Used for structural actions alongside a primary.",
+      "html": "<button class=\"ds-btn-secondary\">Backup now</button>",
+      "css": ".ds-btn-secondary { background: #182018; color: #dff0df; border: 1px solid #1e2d1e; border-radius: 5px; padding: 7px 14px; font-size: 13px; font-weight: 500; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; cursor: pointer; transition: border-color 0.15s, opacity 0.15s; } .ds-btn-secondary:hover { border-color: #1a3a22; } .ds-btn-secondary:active { opacity: 0.75; } .ds-btn-secondary:focus-visible { outline: 2px solid #3dba6e; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Low-hierarchy action. No background, no border. Used for View saved tabs, soft navigation.",
+      "html": "<button class=\"ds-btn-ghost\">View saved tabs ↗</button>",
+      "css": ".ds-btn-ghost { background: none; color: #7a9a7a; border: none; border-radius: 5px; padding: 0; font-size: 12px; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; cursor: pointer; transition: color 0.15s; } .ds-btn-ghost:hover { color: #dff0df; } .ds-btn-ghost:focus-visible { outline: 2px solid #3dba6e; outline-offset: 2px; }"
+    },
+    {
+      "name": "Tag Chip",
+      "kind": "chip",
+      "refersTo": "chip-tag",
+      "description": "Metadata chip for tags. Pill shape. Two states: default (dim) and active (phosphor green).",
+      "html": "<div class=\"ds-chip-demo\"><span class=\"ds-chip\">work</span><span class=\"ds-chip ds-chip--active\">dev</span></div>",
+      "css": ".ds-chip-demo { display: flex; gap: 6px; align-items: center; } .ds-chip { display: inline-flex; align-items: center; background: #1a2a1a; border: 1px solid #1e2d1e; border-radius: 20px; color: #7a9a7a; font-size: 11px; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 2px 8px; cursor: pointer; user-select: none; transition: border-color 0.15s, color 0.15s, background 0.15s; } .ds-chip:hover { border-color: #3dba6e; color: #dff0df; } .ds-chip--active { background: #1a3a22; border-color: #3dba6e; color: #3dba6e; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Single-line text field. Surface Two background. Focus shifts border to Phosphor Green.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"shortcode\" />",
+      "css": ".ds-input { background: #182018; border: 1px solid #1e2d1e; border-radius: 5px; color: #dff0df; font-size: 13px; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 5px 8px; outline: none; transition: border-color 0.15s; width: 200px; } .ds-input::placeholder { color: #7a9a7a; } .ds-input:focus { border-color: #3dba6e; }"
+    },
+    {
+      "name": "Go Badge",
+      "kind": "custom",
+      "refersTo": "go-badge",
+      "description": "Omnibox shortcode badge. Signature component. JetBrains Mono, phosphor green on dim background. Never rendered empty.",
+      "html": "<span class=\"ds-go-badge\">go: gh-prs</span>",
+      "css": ".ds-go-badge { display: inline-block; background: #1a3a22; color: #3dba6e; border-radius: 5px; padding: 2px 6px; font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace; font-size: 11px; font-weight: 400; line-height: 1.5; }"
+    },
+    {
+      "name": "Item Card",
+      "kind": "card",
+      "refersTo": "button-secondary",
+      "description": "Saved tab list row. Surface One background, Terminal Border at rest, Phosphor Dim border on hover.",
+      "html": "<div class=\"ds-item-card\"><div class=\"ds-item-main\"><div class=\"ds-item-icon\">G</div><div class=\"ds-item-info\"><div class=\"ds-item-title\">GitHub — Pull Requests</div><div class=\"ds-item-url\">github.com/owner/repo/pulls</div></div><div class=\"ds-item-meta\"><span class=\"ds-chip\">work</span><span class=\"ds-go-badge\">go: gh-prs</span></div></div></div>",
+      "css": ".ds-item-card { background: #131a13; border: 1px solid #1e2d1e; border-radius: 8px; overflow: hidden; transition: border-color 0.15s; } .ds-item-card:hover { border-color: #1a3a22; } .ds-item-main { display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; } .ds-item-icon { width: 16px; height: 16px; border-radius: 2px; background: #182018; color: #7a9a7a; font-size: 10px; font-family: ui-sans-serif, sans-serif; display: flex; align-items: center; justify-content: center; flex-shrink: 0; } .ds-item-info { flex: 1; min-width: 0; } .ds-item-title { color: #dff0df; font-size: 14px; font-weight: 500; font-family: ui-sans-serif, -apple-system, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-item-url { color: #7a9a7a; font-size: 12px; font-family: ui-sans-serif, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; } .ds-item-meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; } .ds-chip { display: inline-flex; align-items: center; background: #1a2a1a; border: 1px solid #1e2d1e; border-radius: 20px; color: #7a9a7a; font-size: 11px; font-family: ui-sans-serif, sans-serif; padding: 2px 8px; } .ds-go-badge { display: inline-block; background: #1a3a22; color: #3dba6e; border-radius: 5px; padding: 2px 6px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; }"
+    },
+    {
+      "name": "Tab Navigation",
+      "kind": "nav",
+      "refersTo": "chip-tag",
+      "description": "Section switcher between Saved, Backup, and Archive. Bottom-border active indicator, Phosphor Green on active tab.",
+      "html": "<nav class=\"ds-tab-nav\"><button class=\"ds-tab-btn ds-tab-btn--active\">Saved <span class=\"ds-tab-badge\">3</span></button><button class=\"ds-tab-btn\">Backup <span class=\"ds-tab-badge\">2</span></button><button class=\"ds-tab-btn\">Archive</button></nav>",
+      "css": ".ds-tab-nav { display: flex; gap: 4px; border-bottom: 1px solid #1e2d1e; } .ds-tab-btn { background: none; border: none; border-bottom: 2px solid transparent; color: #7a9a7a; cursor: pointer; font-size: 14px; font-weight: 500; font-family: ui-sans-serif, -apple-system, sans-serif; padding: 8px 16px; margin-bottom: -1px; transition: color 0.15s, border-color 0.15s; } .ds-tab-btn:hover { color: #dff0df; } .ds-tab-btn--active { color: #dff0df; border-bottom-color: #3dba6e; } .ds-tab-badge { background: #182018; border-radius: 10px; color: #7a9a7a; font-size: 11px; margin-left: 6px; padding: 1px 6px; transition: background 0.15s, color 0.15s; } .ds-tab-btn--active .ds-tab-badge { background: #1a3a22; color: #3dba6e; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Phosphor Workbench",
+    "overview": "Tab Manager is a precision tool for power users who live in context. The design system takes its DNA from the CRT phosphor monitor — not as nostalgia, but as a source of honest constraints: high contrast, purposeful color, and a surface that recedes until you need it. Every element on screen is there because it works, not because it fills space.\n\nThe system uses a single accent — Phosphor Green (#3dba6e) — against near-black green-tinted surfaces. This is not a dark-mode app that happens to be green. The green is structural: every neutral is tinted toward the hue, from the base layer up through inputs and borders. The accent is rare; its rarity is the point.\n\nInteraction feel is confident and deliberate. Elements do not eagerly animate. State changes are crisp — a border sharpens, a color shifts — and the UI steps aside. Satisfying in the way a clean git commit is satisfying: task done, cursor ready.",
+    "keyCharacteristics": [
+      "Single accent color used in ≤15% of any surface",
+      "All neutrals tinted toward the green hue — no pure greys",
+      "Monospace (JetBrains Mono) reserved for shortcodes, keyboard hints, timestamps",
+      "Flat by default; tonal layering creates depth without shadows",
+      "State transitions at 150ms maximum",
+      "Density respects power users; no decorative padding"
+    ],
+    "rules": [
+      { "name": "The One Voice Rule", "body": "Phosphor Green is the only accent. It appears on ≤15% of any given surface. No secondary accent, no blue, purple, or teal.", "section": "colors" },
+      { "name": "The Substrate Rule", "body": "Every neutral from terminal-black to text-muted is tinted toward the green hue. Pure greys do not belong in this system.", "section": "colors" },
+      { "name": "The No-Glow Rule", "body": "The accent color is never expressed as a glow, bloom, or diffuse box-shadow. A crisp border-color or background shift is the maximum expression.", "section": "colors" },
+      { "name": "The Mono Restraint Rule", "body": "Monospace type appears in exactly three contexts: shortcodes (go: keyword), keyboard hint strings, and timestamps.", "section": "typography" },
+      { "name": "The Tonal Stack Rule", "body": "Never skip a layer. Inputs sit on Surface Two, which sits on Surface One (cards), which sits on Terminal Black.", "section": "elevation" },
+      { "name": "The Flat-At-Rest Rule", "body": "Surfaces are flat at rest. No hover shadow on cards. Shadows are for true overlays only.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do tint every neutral toward the green hue.",
+      "Do use JetBrains Mono exclusively for shortcodes, keyboard hints, and timestamps.",
+      "Do express depth through the tonal stack: Terminal Black → Surface One → Surface Two.",
+      "Do keep all state transitions at 150ms or under.",
+      "Do keep Phosphor Green rare — one active state, one primary action, one badge class per screen.",
+      "Do use uppercase with letter-spacing for structural section labels.",
+      "Do let borders and background tints carry hover/active states on list items."
+    ],
+    "donts": [
+      "Don't add glow, bloom, box-shadow, or text-shadow to the Phosphor Green accent.",
+      "Don't add scanline overlays, blinking cursor decorations, or CRT filter effects.",
+      "Don't introduce a second accent color. Blue, purple, teal, cyan, orange — none belong here.",
+      "Don't use pure greys or pure black (#000, #111, #888, #aaa).",
+      "Don't animate layout properties. Use opacity and color transitions only.",
+      "Don't slide elements into place or use entrance animations for state changes.",
+      "Don't use gradient text (background-clip: text with a gradient).",
+      "Don't use glassmorphism or backdrop-filter decoratively.",
+      "Don't use border-left or border-right greater than 1px as a colored accent stripe.",
+      "Don't replicate the generic dark SaaS look: pure charcoal + blue/purple accent."
+    ]
+  }
+}

@@ -2,56 +2,89 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #0f1117;
-  --surface: #1a1d27;
-  --surface2: #222535;
-  --border: #2e3249;
-  --accent: #6c6ff7;
-  --accent-dim: #3a3d7a;
-  --text: #e2e4f0;
-  --text-dim: #8b8fa8;
-  --danger: #e05c5c;
-  --success: #4caf7d;
-  --radius: 8px;
-  --radius-sm: 5px;
+  --bg:         #0d0f0d;
+  --surface-1:  #131a13;
+  --surface-2:  #182018;
+  --border:     #1e2d1e;
+  --accent:     #3dba6e;
+  --accent-dim: #1a3a22;
+  --text:       #dff0df;
+  --text-muted: #7a9a7a;
+  --danger:     #d95555;
+  --tag-well:   #1a2a1a;
+  --mono:       'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 14px;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
 }
 
+/* ─── Header ────────────────────────────────────────────────────────────────── */
+.app-header {
+  align-items: center;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 24px;
+}
+
+.app-title {
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: -0.3px;
+}
+
+.app-title::before {
+  background: var(--accent);
+  border-radius: 1px;
+  content: '';
+  display: inline-block;
+  height: 15px;
+  margin-right: 11px;
+  vertical-align: middle;
+  width: 7px;
+}
+
+.app-title span {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.app-section {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* ─── Layout ────────────────────────────────────────────────────────────────── */
 .app {
   max-width: 640px;
   margin: 0 auto;
-  padding: 32px 16px;
+  padding: 28px 16px;
 }
-
-h1 {
-  font-size: 22px;
-  font-weight: 700;
-  margin-bottom: 32px;
-}
-
-h1 span { color: var(--accent); }
 
 /* ─── Card sections ─────────────────────────────────────────────────────────── */
 .card {
-  background: var(--surface);
+  background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 20px;
+  border-radius: 8px;
+  margin-bottom: 16px;
   padding: 20px 24px;
 }
 
 .card-title {
-  color: var(--text-dim);
+  color: var(--text-muted);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.5px;
   margin-bottom: 18px;
   text-transform: uppercase;
 }
@@ -59,9 +92,10 @@ h1 span { color: var(--accent); }
 /* ─── Form rows ─────────────────────────────────────────────────────────────── */
 .form-row {
   align-items: center;
-  display: flex;
-  gap: 12px;
-  margin-bottom: 14px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 130px;
+  margin-bottom: 16px;
 }
 
 .form-row:last-child { margin-bottom: 0; }
@@ -70,18 +104,20 @@ h1 span { color: var(--accent); }
   color: var(--text);
   flex: 1;
   font-size: 14px;
+  line-height: 1.4;
 }
 
 .form-sublabel {
-  color: var(--text-dim);
+  color: var(--text-muted);
   display: block;
   font-size: 12px;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 /* ─── Toggle switch ─────────────────────────────────────────────────────────── */
 .toggle-wrap {
-  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
   position: relative;
 }
 
@@ -93,18 +129,18 @@ h1 span { color: var(--accent); }
 }
 
 .toggle-track {
-  background: var(--surface2);
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 20px;
   cursor: pointer;
   display: block;
   height: 24px;
-  transition: background 0.2s;
+  transition: background 0.15s, border-color 0.15s;
   width: 44px;
 }
 
 .toggle-track::after {
-  background: var(--text-dim);
+  background: var(--text-muted);
   border-radius: 50%;
   content: '';
   display: block;
@@ -112,7 +148,7 @@ h1 span { color: var(--accent); }
   left: 3px;
   position: relative;
   top: 3px;
-  transition: transform 0.2s, background 0.2s;
+  transition: transform 0.15s, background 0.15s;
   width: 16px;
 }
 
@@ -126,30 +162,45 @@ input[type="checkbox"]:checked + .toggle-track::after {
   transform: translateX(20px);
 }
 
+input[type="checkbox"]:focus-visible + .toggle-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ─── Number inputs ─────────────────────────────────────────────────────────── */
 .num-input-wrap {
-  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
   display: flex;
-  gap: 6px;
+  overflow: hidden;
+  transition: border-color 0.15s;
 }
+
+.num-input-wrap:focus-within { border-color: var(--accent); }
 
 .form-input {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: none;
+  border: none;
+  caret-color: var(--accent);
   color: var(--text);
+  flex: 1;
+  font-family: inherit;
   font-size: 14px;
+  min-width: 0;
   outline: none;
   padding: 6px 10px;
-  transition: border-color 0.15s;
-  width: 80px;
+  width: 100%;
 }
 
-.form-input:focus { border-color: var(--accent); }
-
 .input-unit {
-  color: var(--text-dim);
-  font-size: 13px;
+  align-items: center;
+  border-left: 1px solid var(--border);
+  color: var(--text-muted);
+  display: flex;
+  font-size: 12px;
+  padding: 0 10px;
+  white-space: nowrap;
 }
 
 /* ─── Storage buttons ───────────────────────────────────────────────────────── */
@@ -162,34 +213,45 @@ input[type="checkbox"]:checked + .toggle-track::after {
 /* ─── Buttons ───────────────────────────────────────────────────────────────── */
 .btn {
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 5px;
   cursor: pointer;
+  font-family: inherit;
   font-size: 13px;
   font-weight: 500;
   padding: 7px 16px;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, border-color 0.15s;
 }
 
-.btn:hover { opacity: 0.85; }
-.btn:active { opacity: 0.7; }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-primary { background: var(--accent); color: var(--bg); }
+.btn-primary:hover  { opacity: 0.9; }
+.btn-primary:active { opacity: 0.75; }
+
+.btn-secondary {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.btn-secondary:hover { border-color: var(--accent-dim); }
+
 .btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover  { opacity: 0.85; }
+.btn-danger:active { opacity: 0.7; }
 
 /* ─── Save row ──────────────────────────────────────────────────────────────── */
 .save-row {
   align-items: center;
   display: flex;
   gap: 12px;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .save-msg {
-  color: var(--success);
+  color: var(--accent);
   font-size: 13px;
   opacity: 0;
-  transition: opacity 0.3s;
+  transition: opacity 0.2s;
 }
 
 .save-msg.visible { opacity: 1; }

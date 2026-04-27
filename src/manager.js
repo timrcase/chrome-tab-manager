@@ -19,6 +19,21 @@ function formatDate(ms) {
   });
 }
 
+function formatRelativeDate(ms) {
+  const diff = Date.now() - ms;
+  const mins  = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days  = Math.floor(diff / 86400000);
+  const weeks = Math.floor(days / 7);
+  if (mins  <  1) return 'just now';
+  if (mins  < 60) return `${mins} minute${mins  !== 1 ? 's' : ''} ago`;
+  if (hours < 24) return `${hours} hour${hours  !== 1 ? 's' : ''} ago`;
+  if (days  ===1) return 'yesterday';
+  if (days  <  7) return `${days} days ago`;
+  if (weeks <  5) return `${weeks} week${weeks  !== 1 ? 's' : ''} ago`;
+  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 function formatDaysAgo(ms) {
   const diff = Date.now() - ms;
   const days = Math.floor(diff / 86400000);
@@ -36,15 +51,31 @@ function daysUntilPurge(closedAt, purgeDays) {
   return remaining;
 }
 
-function makeFavicon(favIconUrl, title) {
-  if (favIconUrl) {
-    const img = document.createElement('img');
-    img.src = favIconUrl;
-    img.className = 'item-favicon';
-    img.onerror = () => img.replaceWith(makePlaceholder(title));
-    return img;
-  }
-  return makePlaceholder(title);
+function googleFaviconUrl(pageUrl) {
+  try {
+    const { hostname } = new URL(pageUrl);
+    return hostname ? `https://www.google.com/s2/favicons?domain=${hostname}&sz=16` : null;
+  } catch { return null; }
+}
+
+function makeFavicon(favIconUrl, tabUrl, title) {
+  const primary = favIconUrl || googleFaviconUrl(tabUrl);
+  const secondary = favIconUrl ? googleFaviconUrl(tabUrl) : null;
+
+  if (!primary) return makePlaceholder(title);
+
+  const img = document.createElement('img');
+  img.src = primary;
+  img.className = 'item-favicon';
+  img.onerror = () => {
+    if (secondary && img.src !== secondary) {
+      img.src = secondary;
+      img.onerror = () => img.replaceWith(makePlaceholder(title));
+    } else {
+      img.replaceWith(makePlaceholder(title));
+    }
+  };
+  return img;
 }
 
 function makePlaceholder(title) {
@@ -162,7 +193,14 @@ function makeSavedCard(tab) {
   const main = document.createElement('div');
   main.className = 'item-main';
 
-  main.appendChild(makeFavicon(tab.favIconUrl, tab.title));
+  main.appendChild(makeFavicon(tab.favIconUrl, tab.url, tab.title));
+
+  if (tab.goCode) {
+    const badge = document.createElement('span');
+    badge.className = 'go-badge';
+    badge.textContent = `go: ${tab.goCode} →`;
+    main.appendChild(badge);
+  }
 
   const info = document.createElement('div');
   info.className = 'item-info';
@@ -172,13 +210,6 @@ function makeSavedCard(tab) {
 
   const meta = document.createElement('div');
   meta.className = 'item-meta';
-
-  if (tab.goCode) {
-    const badge = document.createElement('span');
-    badge.className = 'go-badge';
-    badge.textContent = `go ${tab.goCode}`;
-    meta.appendChild(badge);
-  }
 
   (tab.tags || []).slice(0, 3).forEach((tag) => {
     const pill = document.createElement('span');
@@ -297,18 +328,14 @@ function makeGoCodeEditor(tab) {
   inputRow.style.gap = '6px';
   inputRow.style.alignItems = 'center';
 
-  const prefix = document.createElement('span');
-  prefix.style.color = 'var(--text-dim)';
-  prefix.style.fontFamily = 'monospace';
-  prefix.style.fontSize = '13px';
-  prefix.textContent = 'go ';
-
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'inline-input';
   input.value = tab.goCode || '';
   input.placeholder = 'shortcode';
   input.style.width = '120px';
+  input.style.fontFamily = 'var(--mono)';
+  input.style.fontSize = '12px';
   input.maxLength = 20;
   input.pattern = '[a-z0-9\\-]+';
 
@@ -336,7 +363,6 @@ function makeGoCodeEditor(tab) {
       return;
     }
 
-    // Check uniqueness
     const duplicate = state.savedTabs.find((t) => t.id !== tab.id && t.goCode === code && code !== '');
     if (duplicate) {
       errMsg.textContent = `Code "${code}" is already used by "${duplicate.title}".`;
@@ -347,7 +373,6 @@ function makeGoCodeEditor(tab) {
 
     tab.goCode = code || null;
     await send({ action: 'updateSavedTab', id: tab.id, patch: { goCode: tab.goCode } });
-    // Re-render the card's meta badges
     renderSaved();
   };
 
@@ -361,7 +386,6 @@ function makeGoCodeEditor(tab) {
   saveBtn.onclick = doSave;
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSave(); });
 
-  inputRow.appendChild(prefix);
   inputRow.appendChild(input);
   inputRow.appendChild(saveBtn);
   if (tab.goCode) inputRow.appendChild(clearBtn);
@@ -382,10 +406,10 @@ function makeSavedMeta(tab) {
 
   const val = document.createElement('div');
   val.className = 'detail-value';
-  val.style.color = 'var(--text-dim)';
+  val.style.color = 'var(--text-muted)';
   val.style.fontSize = '12px';
   val.style.paddingTop = '6px';
-  val.textContent = formatDate(tab.savedAt);
+  val.textContent = formatRelativeDate(tab.savedAt);
 
   row.appendChild(label);
   row.appendChild(val);
@@ -489,29 +513,35 @@ function makeSnapshotCard(snapshot) {
   tabsEl.className = 'snapshot-tabs';
 
   if (snapshot.tabs.length === 0) {
-    tabsEl.innerHTML = '<div style="color:var(--text-dim);padding:8px 0;font-size:13px">No tabs captured.</div>';
+    tabsEl.innerHTML = '<div style="color:var(--text-muted);padding:8px 0;font-size:13px">No tabs captured.</div>';
   } else {
     const groupMap = new Map((snapshot.groups || []).map((g) => [g.id, g]));
     let lastGroupId = undefined;
+    let currentGroupWrap = null;
 
     snapshot.tabs.forEach((t) => {
       const groupId = t.groupId ?? -1;
 
       if (groupId !== -1 && groupId !== lastGroupId) {
         const group = groupMap.get(groupId);
+        const color = group?.color || 'grey';
+        currentGroupWrap = document.createElement('div');
+        currentGroupWrap.className = `snapshot-group-wrap snapshot-group-${color}`;
+        tabsEl.appendChild(currentGroupWrap);
+
         const groupHeader = document.createElement('div');
-        groupHeader.className = `snapshot-group-header snapshot-group-${group?.color || 'grey'}`;
+        groupHeader.className = `snapshot-group-header snapshot-group-${color}`;
         groupHeader.textContent = group?.title || 'Unnamed group';
-        tabsEl.appendChild(groupHeader);
-      } else if (groupId === -1 && lastGroupId !== -1 && lastGroupId !== undefined) {
-        // Transitioning out of a group — no header needed, just reset
+        currentGroupWrap.appendChild(groupHeader);
+      } else if (groupId === -1) {
+        currentGroupWrap = null;
       }
       lastGroupId = groupId;
 
       const row = document.createElement('div');
       row.className = groupId !== -1 ? 'snapshot-tab-row snapshot-tab-row--grouped' : 'snapshot-tab-row';
 
-      row.appendChild(makeFavicon(t.favIconUrl, t.title));
+      row.appendChild(makeFavicon(t.favIconUrl, t.url, t.title));
 
       const title = document.createElement('span');
       title.className = 'snapshot-tab-title';
@@ -529,7 +559,7 @@ function makeSnapshotCard(snapshot) {
       row.appendChild(title);
       row.appendChild(url);
       row.appendChild(openBtn);
-      tabsEl.appendChild(row);
+      (currentGroupWrap || tabsEl).appendChild(row);
     });
   }
 
@@ -602,7 +632,7 @@ function makeArchiveCard(entry, purgeDays) {
   main.className = 'item-main';
   main.style.cursor = 'default';
 
-  main.appendChild(makeFavicon(entry.favIconUrl, entry.title));
+  main.appendChild(makeFavicon(entry.favIconUrl, entry.url, entry.title));
 
   const info = document.createElement('div');
   info.className = 'item-info';

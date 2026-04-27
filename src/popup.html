@@ -6,39 +6,36 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <div class="sp-wrap">
-    <div class="sp-preview" id="spPreview">
-      <div id="spFavicon"></div>
-      <div class="sp-preview-info">
-        <div class="sp-preview-title" id="spTitle"></div>
-        <div class="sp-preview-url" id="spUrl"></div>
-      </div>
+  <div class="preview-strip" id="spPreview">
+    <div id="spFavicon"></div>
+    <div class="preview-meta">
+      <div class="preview-title" id="spTitle"></div>
+      <div class="preview-url" id="spUrl"></div>
     </div>
+  </div>
 
-    <div class="sp-unsaveable" id="spUnsaveable" style="display:none">
-      This page can't be saved.
-    </div>
+  <div class="unsaveable" id="spUnsaveable" style="display:none">
+    This page can't be saved.
+  </div>
 
-    <div id="spForm" style="display:none">
-      <div class="sp-field">
-        <label class="sp-label">Tags</label>
-        <div class="sp-tag-input-area" id="spTagArea">
-          <input type="text" class="sp-tag-inline-input" id="spTagInput" placeholder="Add tags…" maxlength="30" />
-        </div>
+  <div id="spForm" style="display:none">
+    <div class="form-body">
+      <span class="form-label">Tags</span>
+      <div class="tag-area" id="spTagArea">
+        <input type="text" class="tag-input" id="spTagInput"
+               placeholder="add tags…" maxlength="30"
+               autocomplete="off" autocorrect="off" spellcheck="false" />
       </div>
-      <div class="sp-field">
-        <label class="sp-label">Go code</label>
-        <div class="sp-row">
-          <span class="sp-prefix">go </span>
-          <input type="text" class="sp-input" id="spGoInput" placeholder="shortcode" maxlength="20" />
-        </div>
-      </div>
-      <div class="sp-footer">
-        <button class="sp-btn-ghost" id="spViewBtn">View saved tabs ↗</button>
-        <button class="sp-btn-primary" id="spSaveBtn">Save &amp; Close</button>
-      </div>
-      <div class="sp-error" id="spError" style="display:none"></div>
+      <span class="form-label">Go code</span>
+      <input type="text" class="go-input" id="spGoInput"
+             placeholder="shortcode" maxlength="20"
+             autocomplete="off" autocorrect="off" spellcheck="false" />
     </div>
+    <footer class="popup-footer">
+      <button class="btn-ghost" id="spViewBtn">View saved tabs ↗</button>
+      <button class="btn-primary" id="spSaveBtn">Save</button>
+    </footer>
+    <div class="error-msg" id="spError" style="display:none"></div>
   </div>
 
   <script src="popup.js"></script>

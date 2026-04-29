@@ -12,18 +12,19 @@ const DEFAULT_SETTINGS = {
   backupMaxSnapshots: 10,
   archiveEnabled: true,
   archivePurgeDays: 30,
+  staleTabThresholdDays: 14,
 };
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 chrome.runtime.onInstalled.addListener(async () => {
   await initSettings();
   await warmTabCache();
+  await warmTabOpenTimes();
   await rescheduleAlarms();
   chrome.omnibox.setDefaultSuggestion({ description: 'Type a go code to navigate' });
-  chrome.contextMenus.create({
-    id: 'openTabManager',
-    title: 'Open Tab Manager',
-    contexts: ['action'],
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({ id: 'openTabManager', title: 'Open Tab Manager', contexts: ['action'] });
+    chrome.contextMenus.create({ id: 'openCleanupPage', title: 'Cleanup Tabs', contexts: ['action'] });
   });
 });
 
@@ -31,10 +32,14 @@ chrome.contextMenus.onClicked.addListener((info) => {
   if (info.menuItemId === 'openTabManager') {
     chrome.tabs.create({ url: chrome.runtime.getURL('manager.html') });
   }
+  if (info.menuItemId === 'openCleanupPage') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('cleanup.html') });
+  }
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   await warmTabCache();
+  await warmTabOpenTimes();
   await rescheduleAlarms();
 });
 
@@ -62,6 +67,19 @@ async function warmTabCache() {
   }
 }
 
+async function warmTabOpenTimes() {
+  const tabs = await chrome.tabs.query({});
+  const { tabOpenTimes = {} } = await chrome.storage.session.get('tabOpenTimes');
+  let changed = false;
+  for (const tab of tabs) {
+    if (tab.id !== undefined && !(tab.id in tabOpenTimes)) {
+      tabOpenTimes[tab.id] = Date.now();
+      changed = true;
+    }
+  }
+  if (changed) await chrome.storage.session.set({ tabOpenTimes });
+}
+
 // ─── Tab tracking ────────────────────────────────────────────────────────────
 chrome.tabs.onCreated.addListener((tab) => {
   if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
@@ -71,6 +89,11 @@ chrome.tabs.onCreated.addListener((tab) => {
       favIconUrl: tab.favIconUrl || null,
     });
   }
+  // Record open time for all tabs (including chrome:// — they're filtered at query time)
+  chrome.storage.session.get('tabOpenTimes').then(({ tabOpenTimes = {} }) => {
+    tabOpenTimes[tab.id] = Date.now();
+    return chrome.storage.session.set({ tabOpenTimes });
+  });
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -84,6 +107,14 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 });
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
+  // Clean up session storage unconditionally
+  chrome.storage.session.get('tabOpenTimes').then(({ tabOpenTimes = {} }) => {
+    if (tabId in tabOpenTimes) {
+      delete tabOpenTimes[tabId];
+      return chrome.storage.session.set({ tabOpenTimes });
+    }
+  });
+
   if (tabsClosedByExtension.has(tabId)) {
     tabsClosedByExtension.delete(tabId);
     tabCache.delete(tabId);
@@ -222,7 +253,7 @@ async function runArchivePurge() {
   }
 }
 
-// ─── Message handler (from popup.js / options.js) ────────────────────────────
+// ─── Message handler (from popup.js / options.js / cleanup.js) ───────────────
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   handleMessage(msg).then(sendResponse).catch((err) => sendResponse({ error: err.message }));
   return true; // keep channel open for async response
@@ -335,6 +366,7 @@ async function handleMessage(msg) {
         backupMaxSnapshots: Math.max(1, parseInt(s.backupMaxSnapshots) || DEFAULT_SETTINGS.backupMaxSnapshots),
         archiveEnabled: Boolean(s.archiveEnabled),
         archivePurgeDays: Math.max(0, parseInt(s.archivePurgeDays) || DEFAULT_SETTINGS.archivePurgeDays),
+        staleTabThresholdDays: Math.max(0, parseInt(s.staleTabThresholdDays) || 0),
       };
       await chrome.storage.local.set({ settings: validated });
       await rescheduleAlarms();
@@ -370,6 +402,88 @@ async function handleMessage(msg) {
       tabsClosedByExtension.add(tab.id);
       await chrome.tabs.remove(tab.id);
       return { ok: true };
+    }
+
+    case 'getCleanupData': {
+      const { settings = DEFAULT_SETTINGS } = await chrome.storage.local.get('settings');
+      const { tabOpenTimes = {} } = await chrome.storage.session.get('tabOpenTimes');
+      const allTabs = await chrome.tabs.query({});
+
+      const usableTabs = allTabs.filter(
+        (t) => t.url
+          && !t.url.startsWith('chrome://')
+          && !t.url.startsWith('chrome-extension://')
+      );
+
+      // Duplicates: group by normalized URL
+      const urlGroups = new Map();
+      for (const tab of usableTabs) {
+        const key = tab.url.replace(/\/$/, '');
+        if (!urlGroups.has(key)) urlGroups.set(key, []);
+        urlGroups.get(key).push(tab);
+      }
+      const duplicateGroups = [];
+      for (const [url, tabs] of urlGroups) {
+        if (tabs.length < 2) continue;
+        duplicateGroups.push({
+          url,
+          tabs: tabs.map((t) => ({
+            tabId: t.id,
+            title: t.title || t.url,
+            favIconUrl: t.favIconUrl || null,
+            pinned: t.pinned,
+            active: t.active,
+            openedAt: tabOpenTimes[t.id] ?? null,
+          })),
+        });
+      }
+
+      // Stale tabs
+      const thresholdDays = settings.staleTabThresholdDays ?? DEFAULT_SETTINGS.staleTabThresholdDays;
+      let staleTabs = [];
+      if (thresholdDays > 0) {
+        const cutoff = Date.now() - thresholdDays * 86400000;
+        staleTabs = usableTabs
+          .filter((t) => {
+            const openedAt = tabOpenTimes[t.id];
+            return openedAt !== undefined && openedAt < cutoff;
+          })
+          .map((t) => ({
+            tabId: t.id,
+            title: t.title || t.url,
+            url: t.url,
+            favIconUrl: t.favIconUrl || null,
+            pinned: t.pinned,
+            active: t.active,
+            openedAt: tabOpenTimes[t.id],
+          }))
+          .sort((a, b) => a.openedAt - b.openedAt);
+      }
+
+      return {
+        ok: true,
+        duplicateGroups,
+        staleTabs,
+        staleThresholdDays: thresholdDays,
+        totalOpen: usableTabs.length,
+      };
+    }
+
+    case 'closeTabs': {
+      const ids = Array.isArray(msg.tabIds) ? msg.tabIds : [];
+      if (ids.length === 0) return { ok: true, closed: 0 };
+
+      // Race condition guard: filter to existing, non-pinned tabs
+      const allTabs = await chrome.tabs.query({});
+      const existingIds = new Set(allTabs.map((t) => t.id));
+      const pinnedIds = new Set(allTabs.filter((t) => t.pinned).map((t) => t.id));
+      const closeable = ids.filter((id) => existingIds.has(id) && !pinnedIds.has(id));
+
+      if (closeable.length === 0) return { ok: true, closed: 0 };
+
+      closeable.forEach((id) => tabsClosedByExtension.add(id));
+      await chrome.tabs.remove(closeable);
+      return { ok: true, closed: closeable.length };
     }
 
     default:

@@ -4,6 +4,7 @@ const DEFAULT_SETTINGS = {
   backupMaxSnapshots: 10,
   archiveEnabled: true,
   archivePurgeDays: 30,
+  staleTabThresholdDays: 14,
 };
 
 // ─── Load settings into form ──────────────────────────────────────────────────
@@ -16,6 +17,7 @@ async function loadSettings() {
   document.getElementById('backupMaxSnapshots').value = s.backupMaxSnapshots;
   document.getElementById('archiveEnabled').checked = s.archiveEnabled !== false;
   document.getElementById('archivePurgeDays').value = s.archivePurgeDays;
+  document.getElementById('staleTabThresholdDays').value = s.staleTabThresholdDays;
 
   updateBackupRowVisibility();
 }
@@ -35,6 +37,7 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
   const backupIntervalMinutes = Math.max(1, parseInt(document.getElementById('backupIntervalMinutes').value, 10) || 60);
   const backupMaxSnapshots = Math.max(1, parseInt(document.getElementById('backupMaxSnapshots').value, 10) || 10);
   const archivePurgeDays = Math.max(0, parseInt(document.getElementById('archivePurgeDays').value, 10) || 0);
+  const staleTabThresholdDays = Math.max(0, parseInt(document.getElementById('staleTabThresholdDays').value, 10) || 0);
 
   const settings = {
     backupEnabled: document.getElementById('backupEnabled').checked,
@@ -42,12 +45,14 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
     backupMaxSnapshots,
     archiveEnabled: document.getElementById('archiveEnabled').checked,
     archivePurgeDays,
+    staleTabThresholdDays,
   };
 
   // Update inputs to reflect clamped values
   document.getElementById('backupIntervalMinutes').value = backupIntervalMinutes;
   document.getElementById('backupMaxSnapshots').value = backupMaxSnapshots;
   document.getElementById('archivePurgeDays').value = archivePurgeDays;
+  document.getElementById('staleTabThresholdDays').value = staleTabThresholdDays;
 
   await chrome.runtime.sendMessage({ action: 'updateSettings', settings });
 

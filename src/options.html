@@ -78,6 +78,22 @@
       </div>
     </div>
 
+    <!-- Cleanup settings -->
+    <div class="card">
+      <div class="card-title">Cleanup</div>
+
+      <div class="form-row">
+        <label class="form-label" for="staleTabThresholdDays">
+          Stale tab threshold
+          <span class="form-sublabel">Tabs open longer than this appear in Cleanup. Set to 0 to disable.</span>
+        </label>
+        <div class="num-input-wrap">
+          <input type="number" id="staleTabThresholdDays" class="form-input" min="0" max="365" step="1" />
+          <span class="input-unit">days</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Storage management -->
     <div class="card">
       <div class="card-title">Storage</div>

@@ -1,0 +1,23 @@
+name: Build Chrome Extension
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-slim
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Create zip
+        run: cd src && zip -r -9 ../tab-manager.zip .
+
+      - name: Create release and attach zip
+        uses: softprops/action-gh-release@v2
+        with:
+          files: tab-manager.zip

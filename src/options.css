@@ -203,6 +203,65 @@ input[type="checkbox"]:focus-visible + .toggle-track {
   white-space: nowrap;
 }
 
+/* ─── Storage usage bar ─────────────────────────────────────────────────────── */
+.storage-usage {
+  margin-bottom: 20px;
+}
+
+.storage-bar-track {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  height: 10px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.storage-segment {
+  height: 100%;
+  min-width: 0;
+  transition: width 0.25s ease;
+}
+
+.storage-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-bottom: 10px;
+}
+
+.legend-item {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.legend-dot {
+  border-radius: 2px;
+  flex-shrink: 0;
+  height: 8px;
+  width: 8px;
+}
+
+.legend-label {
+  color: var(--text);
+}
+
+.legend-bytes {
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.storage-total {
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
 /* ─── Storage buttons ───────────────────────────────────────────────────────── */
 .storage-grid {
   display: flex;

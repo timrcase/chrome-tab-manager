@@ -98,6 +98,17 @@
     <div class="card">
       <div class="card-title">Storage</div>
 
+      <div class="storage-usage">
+        <div class="storage-bar-track">
+          <div class="storage-segment seg-saved" id="segSaved"></div>
+          <div class="storage-segment seg-archive" id="segArchive"></div>
+          <div class="storage-segment seg-backup" id="segBackup"></div>
+          <div class="storage-segment seg-other" id="segOther"></div>
+        </div>
+        <div class="storage-legend" id="storageLegend"></div>
+        <div class="storage-total" id="storageTotal">Loading…</div>
+      </div>
+
       <div class="storage-grid">
         <button class="btn btn-secondary" id="exportData">Export all data</button>
         <button class="btn btn-danger" id="clearSavedTabs">Clear saved tabs</button>

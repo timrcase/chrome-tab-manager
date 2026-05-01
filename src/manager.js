@@ -599,19 +599,27 @@ function renderArchive() {
   const container = document.getElementById('archiveList');
   const noteEl = document.getElementById('archivePurgeNote');
   const purgeDays = state.settings.archivePurgeDays ?? 30;
+  const query = (document.getElementById('archiveSearch')?.value || '').trim().toLowerCase();
 
   noteEl.textContent = purgeDays === 0
     ? 'Archive is kept forever (no purge configured).'
     : `Tabs are automatically removed after ${purgeDays} day${purgeDays !== 1 ? 's' : ''}.`;
 
-  if (state.archiveList.length === 0) {
-    container.innerHTML = '<div class="empty-state">No archived tabs.</div>';
+  const entries = [...state.archiveList].reverse().filter((entry) => {
+    if (!query) return true;
+    return entry.title.toLowerCase().includes(query) || entry.url.toLowerCase().includes(query);
+  });
+
+  if (entries.length === 0) {
+    container.innerHTML = query
+      ? '<div class="empty-state">No results.</div>'
+      : '<div class="empty-state">No archived tabs.</div>';
     return;
   }
 
   container.innerHTML = '';
   let lastBucketKey = null;
-  [...state.archiveList].reverse().forEach((entry) => {
+  entries.forEach((entry) => {
     const bucket = getTimeBucket(entry.closedAt);
     if (bucket.key !== lastBucketKey) {
       const header = document.createElement('div');
@@ -705,6 +713,8 @@ document.getElementById('clearTagFilter').addEventListener('click', () => {
   state.activeTags.clear();
   renderSaved();
 });
+
+document.getElementById('archiveSearch').addEventListener('input', () => renderArchive());
 
 document.getElementById('clearArchive').addEventListener('click', async () => {
   if (!confirm('Clear all archived tabs?')) return;

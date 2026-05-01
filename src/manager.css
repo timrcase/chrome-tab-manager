@@ -561,6 +561,12 @@ body {
 
 .archive-group-header:first-child { margin-top: 0; }
 
+.archive-search {
+  display: block;
+  margin-bottom: 12px;
+  width: 100%;
+}
+
 .archive-purge-note {
   color: var(--text-muted);
   font-size: 12px;

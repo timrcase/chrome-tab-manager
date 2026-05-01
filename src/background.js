@@ -19,7 +19,6 @@ const DEFAULT_SETTINGS = {
 chrome.runtime.onInstalled.addListener(async () => {
   await initSettings();
   await warmTabCache();
-  await warmTabOpenTimes();
   await rescheduleAlarms();
   chrome.omnibox.setDefaultSuggestion({ description: 'Type a go code to navigate' });
   chrome.contextMenus.removeAll(() => {
@@ -39,7 +38,6 @@ chrome.contextMenus.onClicked.addListener((info) => {
 
 chrome.runtime.onStartup.addListener(async () => {
   await warmTabCache();
-  await warmTabOpenTimes();
   await rescheduleAlarms();
 });
 
@@ -67,19 +65,6 @@ async function warmTabCache() {
   }
 }
 
-async function warmTabOpenTimes() {
-  const tabs = await chrome.tabs.query({});
-  const { tabOpenTimes = {} } = await chrome.storage.session.get('tabOpenTimes');
-  let changed = false;
-  for (const tab of tabs) {
-    if (tab.id !== undefined && !(tab.id in tabOpenTimes)) {
-      tabOpenTimes[tab.id] = Date.now();
-      changed = true;
-    }
-  }
-  if (changed) await chrome.storage.session.set({ tabOpenTimes });
-}
-
 // ─── Tab tracking ────────────────────────────────────────────────────────────
 chrome.tabs.onCreated.addListener((tab) => {
   if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
@@ -89,11 +74,6 @@ chrome.tabs.onCreated.addListener((tab) => {
       favIconUrl: tab.favIconUrl || null,
     });
   }
-  // Record open time for all tabs (including chrome:// — they're filtered at query time)
-  chrome.storage.session.get('tabOpenTimes').then(({ tabOpenTimes = {} }) => {
-    tabOpenTimes[tab.id] = Date.now();
-    return chrome.storage.session.set({ tabOpenTimes });
-  });
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -107,14 +87,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 });
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
-  // Clean up session storage unconditionally
-  chrome.storage.session.get('tabOpenTimes').then(({ tabOpenTimes = {} }) => {
-    if (tabId in tabOpenTimes) {
-      delete tabOpenTimes[tabId];
-      return chrome.storage.session.set({ tabOpenTimes });
-    }
-  });
-
   if (tabsClosedByExtension.has(tabId)) {
     tabsClosedByExtension.delete(tabId);
     tabCache.delete(tabId);
@@ -406,7 +378,6 @@ async function handleMessage(msg) {
 
     case 'getCleanupData': {
       const { settings = DEFAULT_SETTINGS } = await chrome.storage.local.get('settings');
-      const { tabOpenTimes = {} } = await chrome.storage.session.get('tabOpenTimes');
       const allTabs = await chrome.tabs.query({});
 
       const usableTabs = allTabs.filter(
@@ -433,21 +404,18 @@ async function handleMessage(msg) {
             favIconUrl: t.favIconUrl || null,
             pinned: t.pinned,
             active: t.active,
-            openedAt: tabOpenTimes[t.id] ?? null,
+            openedAt: t.lastAccessed ?? null,
           })),
         });
       }
 
-      // Stale tabs
+      // Stale tabs — based on lastAccessed (native Chrome property)
       const thresholdDays = settings.staleTabThresholdDays ?? DEFAULT_SETTINGS.staleTabThresholdDays;
       let staleTabs = [];
       if (thresholdDays > 0) {
         const cutoff = Date.now() - thresholdDays * 86400000;
         staleTabs = usableTabs
-          .filter((t) => {
-            const openedAt = tabOpenTimes[t.id];
-            return openedAt !== undefined && openedAt < cutoff;
-          })
+          .filter((t) => t.lastAccessed !== undefined && t.lastAccessed < cutoff)
           .map((t) => ({
             tabId: t.id,
             title: t.title || t.url,
@@ -455,7 +423,7 @@ async function handleMessage(msg) {
             favIconUrl: t.favIconUrl || null,
             pinned: t.pinned,
             active: t.active,
-            openedAt: tabOpenTimes[t.id],
+            openedAt: t.lastAccessed,
           }))
           .sort((a, b) => a.openedAt - b.openedAt);
       }

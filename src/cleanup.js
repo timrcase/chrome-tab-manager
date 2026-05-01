@@ -109,7 +109,7 @@ function makeTabRow(tab) {
   ageBadge.className = 'age-badge';
   if (tab.openedAt) {
     ageBadge.textContent = formatAge(tab.openedAt);
-    ageBadge.title = new Date(tab.openedAt).toLocaleString();
+    ageBadge.title = `Last accessed: ${new Date(tab.openedAt).toLocaleString()}`;
   } else {
     ageBadge.textContent = 'age unknown';
     ageBadge.title = 'Tab was open before tracking began';
@@ -193,7 +193,7 @@ function renderStale(tabs) {
   }
 
   actionsEl.style.display = '';
-  infoIcon.dataset.tooltip = `Tabs open for more than ${threshold} day${threshold !== 1 ? 's' : ''}.`;
+  infoIcon.dataset.tooltip = `Tabs not accessed in more than ${threshold} day${threshold !== 1 ? 's' : ''}.`;
   infoIcon.textContent = 'info';
   countEl.textContent = tabs.length;
 
@@ -270,9 +270,9 @@ async function handleCloseDuplicates() {
     const sorted = [...group.tabs].sort((a, b) => {
       if (a.openedAt === null) return 1;
       if (b.openedAt === null) return -1;
-      return a.openedAt - b.openedAt;
+      return b.openedAt - a.openedAt;
     });
-    // Keep oldest (index 0), close the rest
+    // Keep most recently accessed (index 0), close the rest
     sorted.slice(1).forEach((t) => tabIds.push(t.tabId));
   }
 

@@ -144,6 +144,11 @@ async function loadStorageUsage() {
     `${formatBytes(total)} of ${formatBytes(QUOTA)} used (${pctUsed}%)`;
 }
 
+// ─── Navigation ──────────────────────────────────────────────────────────────
+document.querySelector('.app-title').addEventListener('click', () => {
+  window.location.href = chrome.runtime.getURL('manager.html');
+});
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 loadSettings();
 loadStorageUsage();

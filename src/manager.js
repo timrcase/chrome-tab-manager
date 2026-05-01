@@ -706,7 +706,7 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
 
 // ─── Event bindings ───────────────────────────────────────────────────────────
 document.getElementById('openOptions').addEventListener('click', () => {
-  chrome.runtime.openOptionsPage();
+  window.location.href = chrome.runtime.getURL('options.html');
 });
 
 document.getElementById('clearTagFilter').addEventListener('click', () => {

@@ -27,13 +27,20 @@ chrome.runtime.onInstalled.addListener(async () => {
   });
 });
 
+async function openOrFocusTab(url) {
+  const tabs = await chrome.tabs.query({});
+  const existing = tabs.find((t) => t.url === url);
+  if (existing) {
+    await chrome.tabs.update(existing.id, { active: true });
+    await chrome.windows.update(existing.windowId, { focused: true });
+  } else {
+    chrome.tabs.create({ url });
+  }
+}
+
 chrome.contextMenus.onClicked.addListener((info) => {
-  if (info.menuItemId === 'openTabManager') {
-    chrome.tabs.create({ url: chrome.runtime.getURL('manager.html') });
-  }
-  if (info.menuItemId === 'openCleanupPage') {
-    chrome.tabs.create({ url: chrome.runtime.getURL('cleanup.html') });
-  }
+  if (info.menuItemId === 'openTabManager') openOrFocusTab(chrome.runtime.getURL('manager.html'));
+  if (info.menuItemId === 'openCleanupPage') openOrFocusTab(chrome.runtime.getURL('cleanup.html'));
 });
 
 chrome.runtime.onStartup.addListener(async () => {

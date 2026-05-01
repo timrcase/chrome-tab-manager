@@ -325,7 +325,12 @@ async function loadData() {
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────
-document.getElementById('openOptions').addEventListener('click', () => chrome.runtime.openOptionsPage());
+document.querySelector('.app-title').addEventListener('click', () => {
+  window.location.href = chrome.runtime.getURL('manager.html');
+});
+document.getElementById('openOptions').addEventListener('click', () => {
+  window.location.href = chrome.runtime.getURL('options.html');
+});
 document.getElementById('dupCloseExtras').addEventListener('click', handleCloseDuplicates);
 document.getElementById('staleSelectAll').addEventListener('click', () => toggleSelectAll('stale'));
 document.getElementById('staleCloseSelected').addEventListener('click', handleCloseStale);

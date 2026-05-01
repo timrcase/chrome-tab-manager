@@ -29,8 +29,9 @@ body {
   background: var(--surface-1);
   border-bottom: 1px solid var(--border);
   display: flex;
+  height: 52px;
   justify-content: space-between;
-  padding: 14px 24px;
+  padding: 0 24px;
 }
 
 .app-title {

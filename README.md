@@ -20,6 +20,9 @@ A Chrome extension for power users who accumulate tabs. Save, tag, back up, and 
 
 ## Installation
 
+> [!TIP]
+> For non-development use, the extension is available on the [Chrome Web Store](https://chromewebstore.google.com/detail/tab-manager/hdojdkeacfphbkelgeclpcjaijblkonl).
+
 Load unpacked from Chrome:
 
 1. Clone this repo

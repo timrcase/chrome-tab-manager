@@ -723,6 +723,21 @@ document.getElementById('clearArchive').addEventListener('click', async () => {
   render();
 });
 
+document.getElementById('clearSavedTabs').addEventListener('click', async () => {
+  if (!confirm('Clear all saved tabs? This cannot be undone.')) return;
+  await send({ action: 'clearSavedTabs' });
+  state.savedTabs = [];
+  state.activeTags.clear();
+  render();
+});
+
+document.getElementById('clearBackupList').addEventListener('click', async () => {
+  if (!confirm('Clear all backup snapshots? This cannot be undone.')) return;
+  await send({ action: 'clearBackupList' });
+  state.backupList = [];
+  render();
+});
+
 document.getElementById('runBackupNow').addEventListener('click', async () => {
   const btn = document.getElementById('runBackupNow');
   btn.disabled = true;

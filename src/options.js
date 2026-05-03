@@ -7,6 +7,15 @@ const DEFAULT_SETTINGS = {
   staleTabThresholdDays: 14,
 };
 
+const NUMBER_FIELDS = {
+  backupIntervalMinutes: { min: 1, max: 10080 },
+  backupMaxSnapshots: { min: 1, max: 100 },
+  archivePurgeDays: { min: 0, max: 3650 },
+  staleTabThresholdDays: { min: 0, max: 365 },
+};
+
+const TOGGLE_FIELDS = ['backupEnabled', 'archiveEnabled'];
+
 // ─── Load settings into form ──────────────────────────────────────────────────
 async function loadSettings() {
   const { settings = DEFAULT_SETTINGS } = await chrome.storage.local.get('settings');
@@ -30,36 +39,83 @@ function updateBackupRowVisibility() {
   document.getElementById('backupMaxSnapshots').disabled = !enabled;
 }
 
+// ─── Autosave ─────────────────────────────────────────────────────────────────
+async function saveField(key, value) {
+  const { settings = {} } = await chrome.storage.local.get('settings');
+  await chrome.runtime.sendMessage({
+    action: 'updateSettings',
+    settings: { ...DEFAULT_SETTINGS, ...settings, [key]: value },
+  });
+}
+
+function flashSaved(wrap) {
+  wrap.classList.remove('saved');
+  void wrap.offsetWidth;
+  wrap.classList.add('saved');
+  setTimeout(() => wrap.classList.remove('saved'), 600);
+}
+
+function showError(key, msg) {
+  const errEl = document.querySelector(`.form-error[data-for="${key}"]`);
+  if (errEl) {
+    errEl.textContent = msg;
+    errEl.classList.add('visible');
+  }
+  document.getElementById(key).closest('.num-input-wrap').classList.add('error');
+}
+
+function clearError(key) {
+  const errEl = document.querySelector(`.form-error[data-for="${key}"]`);
+  if (errEl) {
+    errEl.textContent = '';
+    errEl.classList.remove('visible');
+  }
+  document.getElementById(key).closest('.num-input-wrap').classList.remove('error');
+}
+
+async function restoreFieldFromStorage(key) {
+  const { settings = {} } = await chrome.storage.local.get('settings');
+  const merged = { ...DEFAULT_SETTINGS, ...settings };
+  document.getElementById(key).value = merged[key];
+}
+
+function bindNumberField(key) {
+  const input = document.getElementById(key);
+  const wrap = input.closest('.num-input-wrap');
+  const { min, max } = NUMBER_FIELDS[key];
+
+  input.addEventListener('change', async () => {
+    const raw = input.value.trim();
+    if (raw === '') {
+      clearError(key);
+      await restoreFieldFromStorage(key);
+      return;
+    }
+    const n = parseInt(raw, 10);
+    if (Number.isNaN(n)) {
+      showError(key, 'Must be a number.');
+      return;
+    }
+    if (n < min) { showError(key, `Must be at least ${min}.`); return; }
+    if (n > max) { showError(key, `Must be at most ${max}.`); return; }
+
+    clearError(key);
+    await saveField(key, n);
+    flashSaved(wrap);
+  });
+}
+
+function bindToggleField(key) {
+  const input = document.getElementById(key);
+  input.addEventListener('change', async () => {
+    await saveField(key, input.checked);
+  });
+}
+
+Object.keys(NUMBER_FIELDS).forEach(bindNumberField);
+TOGGLE_FIELDS.forEach(bindToggleField);
+
 document.getElementById('backupEnabled').addEventListener('change', updateBackupRowVisibility);
-
-// ─── Save settings ────────────────────────────────────────────────────────────
-document.getElementById('saveSettings').addEventListener('click', async () => {
-  const backupIntervalMinutes = Math.max(1, parseInt(document.getElementById('backupIntervalMinutes').value, 10) || 60);
-  const backupMaxSnapshots = Math.max(1, parseInt(document.getElementById('backupMaxSnapshots').value, 10) || 10);
-  const archivePurgeDays = Math.max(0, parseInt(document.getElementById('archivePurgeDays').value, 10) || 0);
-  const staleTabThresholdDays = Math.max(0, parseInt(document.getElementById('staleTabThresholdDays').value, 10) || 0);
-
-  const settings = {
-    backupEnabled: document.getElementById('backupEnabled').checked,
-    backupIntervalMinutes,
-    backupMaxSnapshots,
-    archiveEnabled: document.getElementById('archiveEnabled').checked,
-    archivePurgeDays,
-    staleTabThresholdDays,
-  };
-
-  // Update inputs to reflect clamped values
-  document.getElementById('backupIntervalMinutes').value = backupIntervalMinutes;
-  document.getElementById('backupMaxSnapshots').value = backupMaxSnapshots;
-  document.getElementById('archivePurgeDays').value = archivePurgeDays;
-  document.getElementById('staleTabThresholdDays').value = staleTabThresholdDays;
-
-  await chrome.runtime.sendMessage({ action: 'updateSettings', settings });
-
-  const msg = document.getElementById('saveMsg');
-  msg.classList.add('visible');
-  setTimeout(() => msg.classList.remove('visible'), 2500);
-});
 
 // ─── Storage management ───────────────────────────────────────────────────────
 document.getElementById('exportData').addEventListener('click', async () => {
@@ -73,27 +129,106 @@ document.getElementById('exportData').addEventListener('click', async () => {
   URL.revokeObjectURL(url);
 });
 
-document.getElementById('clearSavedTabs').addEventListener('click', async () => {
-  if (!confirm('Clear all saved tabs? This cannot be undone.')) return;
-  await chrome.runtime.sendMessage({ action: 'clearSavedTabs' });
+// ─── Import modal ─────────────────────────────────────────────────────────────
+const importDialog = document.getElementById('importDialog');
+const dropZone = document.getElementById('dropZone');
+const dropZonePrimary = document.getElementById('dropZonePrimary');
+const dropZoneSecondary = document.getElementById('dropZoneSecondary');
+const importFileInput = document.getElementById('importFile');
+const importError = document.getElementById('importError');
+const confirmImportBtn = document.getElementById('confirmImport');
+
+let pendingImport = null;
+
+function resetImportDialog() {
+  pendingImport = null;
+  importFileInput.value = '';
+  dropZone.classList.remove('has-file', 'dragover');
+  dropZonePrimary.textContent = 'Drop a backup file here';
+  dropZoneSecondary.textContent = 'or click to choose';
+  importError.hidden = true;
+  importError.textContent = '';
+  confirmImportBtn.disabled = true;
+}
+
+function showImportError(msg) {
+  importError.textContent = msg;
+  importError.hidden = false;
+  pendingImport = null;
+  confirmImportBtn.disabled = true;
+}
+
+async function loadImportFile(file) {
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const keys = ['savedTabs', 'backupList', 'archiveList', 'settings'];
+    const valid = keys.some((k) => k in data);
+    if (!valid) {
+      showImportError('Invalid export file. No recognized data found.');
+      return;
+    }
+    pendingImport = {};
+    keys.forEach((k) => { if (k in data) pendingImport[k] = data[k]; });
+    importError.hidden = true;
+    dropZone.classList.add('has-file');
+    dropZonePrimary.textContent = file.name;
+    dropZoneSecondary.textContent = `${(file.size / 1024).toFixed(1)} KB ready to import`;
+    confirmImportBtn.disabled = false;
+  } catch {
+    showImportError('Failed to read file. Must be a valid Tab Manager export.');
+  }
+}
+
+document.getElementById('importData').addEventListener('click', () => {
+  resetImportDialog();
+  importDialog.showModal();
 });
 
-document.getElementById('clearBackupList').addEventListener('click', async () => {
-  if (!confirm('Clear all backup snapshots? This cannot be undone.')) return;
-  await chrome.runtime.sendMessage({ action: 'clearBackupList' });
+document.getElementById('closeImport').addEventListener('click', () => importDialog.close());
+document.getElementById('cancelImport').addEventListener('click', () => importDialog.close());
+
+importDialog.addEventListener('close', resetImportDialog);
+
+dropZone.addEventListener('click', () => importFileInput.click());
+dropZone.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    importFileInput.click();
+  }
 });
 
-document.getElementById('clearArchive').addEventListener('click', async () => {
-  if (!confirm('Clear the entire archive? This cannot be undone.')) return;
-  await chrome.runtime.sendMessage({ action: 'clearArchive' });
+importFileInput.addEventListener('change', (e) => {
+  loadImportFile(e.target.files[0]);
+});
+
+['dragenter', 'dragover'].forEach((ev) => {
+  dropZone.addEventListener(ev, (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+});
+['dragleave'].forEach((ev) => {
+  dropZone.addEventListener(ev, () => dropZone.classList.remove('dragover'));
+});
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) loadImportFile(file);
+});
+
+confirmImportBtn.addEventListener('click', async () => {
+  if (!pendingImport) return;
+  await chrome.storage.local.set(pendingImport);
+  importDialog.close();
+  location.reload();
 });
 
 // ─── Storage usage ────────────────────────────────────────────────────────────
 const USAGE_SEGMENTS = [
-  { id: 'segSaved',   key: 'savedTabs',  label: 'Saved',   color: '#3dba6e' },
-  { id: 'segArchive', key: 'archiveList', label: 'Archive', color: '#5a9a8a' },
-  { id: 'segBackup',  key: 'backupList',  label: 'Backups', color: '#9aba3d' },
-  { id: 'segOther',   key: null,          label: 'Other',   color: '#3a5a3a' },
+  { id: 'segSaved',   key: 'savedTabs',   label: 'Saved',   dotClass: 'legend-dot--saved' },
+  { id: 'segArchive', key: 'archiveList', label: 'Archive', dotClass: 'legend-dot--archive' },
+  { id: 'segBackup',  key: 'backupList',  label: 'Backups', dotClass: 'legend-dot--backup' },
+  { id: 'segOther',   key: null,          label: 'Other',   dotClass: 'legend-dot--other' },
 ];
 
 function formatBytes(bytes) {
@@ -122,13 +257,13 @@ async function loadStorageUsage() {
   for (const seg of USAGE_SEGMENTS) {
     const bytes = bytesMap[seg.id];
     const pct = QUOTA > 0 ? (bytes / QUOTA) * 100 : 0;
-    document.getElementById(seg.id).style.width = `${pct}%`;
+    const segEl = document.getElementById(seg.id);
+    segEl.style.width = `${pct}%`;
 
     const item = document.createElement('div');
     item.className = 'legend-item';
     const dot = document.createElement('span');
-    dot.className = 'legend-dot';
-    dot.style.background = seg.color;
+    dot.className = `legend-dot ${seg.dotClass}`;
     const labelEl = document.createElement('span');
     labelEl.className = 'legend-label';
     labelEl.textContent = seg.label;

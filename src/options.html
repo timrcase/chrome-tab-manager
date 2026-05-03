@@ -34,9 +34,12 @@
           Backup interval
           <span class="form-sublabel">Minimum 1 minute</span>
         </label>
-        <div class="num-input-wrap">
-          <input type="number" id="backupIntervalMinutes" class="form-input" min="1" max="10080" step="1" />
-          <span class="input-unit">min</span>
+        <div class="form-control">
+          <div class="num-input-wrap">
+            <input type="number" id="backupIntervalMinutes" class="form-input" min="1" max="10080" step="1" />
+            <span class="input-unit">min</span>
+          </div>
+          <div class="form-error" data-for="backupIntervalMinutes"></div>
         </div>
       </div>
 
@@ -45,8 +48,11 @@
           Max snapshots to keep
           <span class="form-sublabel">Older snapshots are removed automatically</span>
         </label>
-        <div class="num-input-wrap">
-          <input type="number" id="backupMaxSnapshots" class="form-input" min="1" max="100" step="1" />
+        <div class="form-control">
+          <div class="num-input-wrap">
+            <input type="number" id="backupMaxSnapshots" class="form-input" min="1" max="100" step="1" />
+          </div>
+          <div class="form-error" data-for="backupMaxSnapshots"></div>
         </div>
       </div>
     </div>
@@ -71,9 +77,12 @@
           Purge entries older than
           <span class="form-sublabel">Set to 0 to keep archive entries forever</span>
         </label>
-        <div class="num-input-wrap">
-          <input type="number" id="archivePurgeDays" class="form-input" min="0" max="3650" step="1" />
-          <span class="input-unit">days</span>
+        <div class="form-control">
+          <div class="num-input-wrap">
+            <input type="number" id="archivePurgeDays" class="form-input" min="0" max="3650" step="1" />
+            <span class="input-unit">days</span>
+          </div>
+          <div class="form-error" data-for="archivePurgeDays"></div>
         </div>
       </div>
     </div>
@@ -87,9 +96,12 @@
           Stale tab threshold
           <span class="form-sublabel">Tabs not accessed in this many days appear in Cleanup. Set to 0 to disable.</span>
         </label>
-        <div class="num-input-wrap">
-          <input type="number" id="staleTabThresholdDays" class="form-input" min="0" max="365" step="1" />
-          <span class="input-unit">days</span>
+        <div class="form-control">
+          <div class="num-input-wrap">
+            <input type="number" id="staleTabThresholdDays" class="form-input" min="0" max="365" step="1" />
+            <span class="input-unit">days</span>
+          </div>
+          <div class="form-error" data-for="staleTabThresholdDays"></div>
         </div>
       </div>
     </div>
@@ -109,21 +121,49 @@
         <div class="storage-total" id="storageTotal">Loading…</div>
       </div>
 
-      <div class="storage-grid">
-        <button class="btn btn-secondary" id="exportData">Export all data</button>
-        <button class="btn btn-danger" id="clearSavedTabs">Clear saved tabs</button>
-        <button class="btn btn-danger" id="clearBackupList">Clear backups</button>
-        <button class="btn btn-danger" id="clearArchive">Clear archive</button>
+      <div class="storage-actions">
+        <button class="btn btn-secondary" id="exportData">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M5 20h14v-2H5v2zm0-10h4v6h6v-6h4l-7-7-7 7z"/>
+          </svg>
+          Export data
+        </button>
+        <button class="btn btn-secondary" id="importData">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M5 20h14v-2H5v2zm14-10h-4V4H9v6H5l7 7 7-7z"/>
+          </svg>
+          Import data…
+        </button>
       </div>
     </div>
 
-    <!-- Save -->
-    <div class="save-row">
-      <button class="btn btn-primary" id="saveSettings">Save settings</button>
-      <span class="save-msg" id="saveMsg">Settings saved.</span>
-    </div>
-
   </div>
+
+  <!-- Import modal -->
+  <dialog class="modal" id="importDialog">
+    <div class="modal-header">
+      <span class="modal-title">Import data</span>
+      <button class="modal-close" id="closeImport" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="drop-zone" id="dropZone" tabindex="0" role="button" aria-label="Drop file or click to choose">
+        <svg class="drop-zone-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M5 20h14v-2H5v2zm14-10h-4V4H9v6H5l7 7 7-7z"/>
+        </svg>
+        <span class="drop-zone-primary" id="dropZonePrimary">Drop a backup file here</span>
+        <span class="drop-zone-secondary" id="dropZoneSecondary">or click to choose</span>
+      </div>
+      <input type="file" id="importFile" accept=".json" style="display:none" />
+      <div class="modal-error" id="importError" hidden></div>
+      <div class="modal-warn">
+        This will overwrite all current saved tabs, backups, archive, and settings.
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelImport">Cancel</button>
+      <button class="btn btn-primary" id="confirmImport" disabled>Import &amp; overwrite</button>
+    </div>
+  </dialog>
 
   <script src="options.js"></script>
 </body>

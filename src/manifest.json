@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tab Manager",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Close, save, tag, backup, and archive your tabs.",
   "permissions": ["tabs", "storage", "alarms", "omnibox", "tabGroups", "contextMenus"],
   "host_permissions": ["<all_urls>"],

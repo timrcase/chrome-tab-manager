@@ -15,6 +15,12 @@ const DEFAULT_SETTINGS = {
   staleTabThresholdDays: 14,
 };
 
+// ─── Dev badge ───────────────────────────────────────────────────────────────
+if (!chrome.runtime.getManifest().update_url) {
+  chrome.action.setBadgeText({ text: 'β' });
+  chrome.action.setBadgeBackgroundColor({ color: '#e8710a' });
+}
+
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 chrome.runtime.onInstalled.addListener(async () => {
   await initSettings();

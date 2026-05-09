@@ -376,6 +376,8 @@ body {
 .tag-remove-btn:hover { color: var(--danger); }
 
 .inline-input {
+  -webkit-appearance: none;
+  appearance: none;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 5px;

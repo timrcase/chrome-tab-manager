@@ -30,7 +30,7 @@
           <div class="card-title">
             <span class="count-badge" id="dupCount"></span>
             Duplicate Tabs
-            <span class="material-symbols-outlined info-icon" data-tooltip="Multiple tabs open to the same URL. Oldest will be kept.">info</span>
+            <span class="material-symbols-outlined info-icon" data-tooltip="Multiple tabs open to the same URL. Most recently accessed will be kept.">info</span>
           </div>
           <div class="card-actions">
             <button class="btn btn-danger btn-sm" id="dupCloseExtras" disabled>Close extras</button>
@@ -50,6 +50,7 @@
           </div>
           <div class="card-actions" id="staleActions">
             <button class="btn btn-ghost btn-sm" id="staleSelectAll">Select all</button>
+            <button class="btn btn-ghost btn-sm" id="staleSaveSelected" disabled>Save selected</button>
             <button class="btn btn-danger btn-sm" id="staleCloseSelected" disabled>Close selected</button>
           </div>
         </div>

@@ -209,17 +209,23 @@ body {
 }
 
 /* ─── Duplicate URL list ────────────────────────────────────────────────────── */
-.dup-url-row {
-  align-items: center;
+.dup-group {
   border: 1px solid var(--border);
   border-radius: 6px;
-  display: flex;
-  gap: 10px;
-  margin-bottom: 4px;
-  padding: 8px 12px;
+  margin-bottom: 8px;
+  overflow: hidden;
 }
 
-.dup-url-row:last-child { margin-bottom: 0; }
+.dup-group:last-child { margin-bottom: 0; }
+
+.dup-url-row {
+  align-items: center;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  padding: 8px 12px;
+}
 
 .dup-url-text {
   color: var(--text-muted);
@@ -243,13 +249,22 @@ body {
   padding: 1px 6px;
 }
 
+.dup-tab-list .tab-row {
+  border: 0;
+  border-radius: 0;
+  margin-bottom: 0;
+}
+
+.dup-tab-list .tab-row + .tab-row { border-top: 1px solid var(--border); }
+
 /* ─── Tab rows (shared) ─────────────────────────────────────────────────────── */
 .tab-row {
   align-items: center;
   display: flex;
   gap: 10px;
   padding: 9px 12px;
-  transition: background 0.1s;
+  position: relative;
+  transition: background 0.1s, opacity 0.14s;
 }
 
 .tab-row + .tab-row { border-top: 1px solid var(--border); }
@@ -317,6 +332,76 @@ body {
   display: flex;
   flex-shrink: 0;
   gap: 6px;
+  transition: opacity 0.1s;
+}
+
+.tab-row-actions {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: opacity 0.1s;
+  z-index: 1;
+}
+
+.tab-row:hover .tab-row-actions,
+.tab-row:focus-within .tab-row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tab-row--actions:hover .tab-meta,
+.tab-row--actions:focus-within .tab-meta {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tab-row-status {
+  align-items: center;
+  color: var(--text);
+  display: flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 7px;
+  inset: 0;
+  justify-content: center;
+  pointer-events: none;
+  position: absolute;
+}
+
+.tab-row-status .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.tab-row--committed {
+  background: var(--surface-2);
+  border-color: var(--accent-dim);
+}
+
+.tab-row--committed > :not(.tab-row-status) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tab-row--saved .tab-row-status {
+  color: var(--accent);
+}
+
+.tab-row--closed {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+
+.tab-row--closed .tab-row-status {
+  color: var(--danger);
+}
+
+.tab-row--exiting {
+  opacity: 0;
 }
 
 /* ─── Badges ────────────────────────────────────────────────────────────────── */
@@ -349,6 +434,14 @@ body {
 
 .item-list .tab-row:last-child { margin-bottom: 0; }
 
+.dup-tab-list.item-list .tab-row {
+  border: 0;
+  border-radius: 0;
+  margin-bottom: 0;
+}
+
+.dup-tab-list.item-list .tab-row + .tab-row { border-top: 1px solid var(--border); }
+
 /* ─── Buttons ───────────────────────────────────────────────────────────────── */
 .btn {
   border: none;
@@ -370,6 +463,25 @@ body {
 
 .btn-sm { font-size: 12px; padding: 5px 11px; }
 
+.btn-xs {
+  font-size: 11px;
+  padding: 3px 7px;
+}
+
+.btn-icon {
+  align-items: center;
+  display: inline-flex;
+  height: 26px;
+  justify-content: center;
+  padding: 0;
+  width: 26px;
+}
+
+.btn-icon .material-symbols-outlined {
+  font-size: 16px;
+  line-height: 1;
+}
+
 .btn-ghost {
   background: transparent;
   border: 1px solid var(--border);
@@ -378,9 +490,46 @@ body {
 
 .btn-ghost:not(:disabled):hover { border-color: var(--accent-dim); color: var(--text); }
 
-.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger { background: var(--danger); color: var(--text); }
 .btn-danger:not(:disabled):hover  { opacity: 0.85; }
 .btn-danger:not(:disabled):active { opacity: 0.7; }
+
+.btn-error-flash {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+@media (max-width: 620px) {
+  .card-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .card-actions {
+    flex-wrap: wrap;
+  }
+
+  .tab-row {
+    align-items: flex-start;
+  }
+
+  .tab-meta {
+    display: none;
+  }
+
+  .tab-row-actions {
+    opacity: 1;
+    pointer-events: auto;
+    position: static;
+    transform: none;
+  }
+
+  .tab-row--actions:hover .tab-meta,
+  .tab-row--actions:focus-within .tab-meta {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
 
 /* ─── Footer ────────────────────────────────────────────────────────────────── */
 .footer-note {

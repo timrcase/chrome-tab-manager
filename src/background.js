@@ -274,6 +274,26 @@ async function runArchivePurge() {
   }
 }
 
+function isSaveableTab(tab) {
+  return (
+    tab?.url &&
+    !tab.url.startsWith("chrome://") &&
+    !tab.url.startsWith("chrome-extension://")
+  );
+}
+
+function makeSavedTabEntry(tab) {
+  return {
+    id: crypto.randomUUID(),
+    url: tab.url,
+    title: tab.title || tab.url,
+    favIconUrl: tab.favIconUrl || null,
+    tags: [],
+    goCode: null,
+    savedAt: Date.now(),
+  };
+}
+
 // ─── Message handler (from popup.js / options.js / cleanup.js) ───────────────
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   handleMessage(msg)
@@ -423,21 +443,13 @@ async function handleMessage(msg) {
         active: true,
         currentWindow: true,
       });
-      if (
-        !tab?.url ||
-        tab.url.startsWith("chrome://") ||
-        tab.url.startsWith("chrome-extension://")
-      ) {
+      if (!isSaveableTab(tab)) {
         return { ok: false, reason: "unsaveable" };
       }
       const entry = {
-        id: crypto.randomUUID(),
-        url: tab.url,
-        title: tab.title || tab.url,
-        favIconUrl: tab.favIconUrl || null,
+        ...makeSavedTabEntry(tab),
         tags: msg.tags || [],
         goCode: msg.goCode || null,
-        savedAt: Date.now(),
       };
       const { savedTabs = [] } = await chrome.storage.local.get("savedTabs");
       savedTabs.push(entry);
@@ -449,6 +461,32 @@ async function handleMessage(msg) {
       tabsClosedByExtension.add(tab.id);
       await chrome.tabs.remove(tab.id);
       return { ok: true };
+    }
+
+    case "saveTabs": {
+      const ids = Array.isArray(msg.tabIds) ? msg.tabIds : [];
+      if (ids.length === 0) return { ok: true, saved: 0, closed: 0 };
+
+      const requestedIds = new Set(ids);
+      const allTabs = await chrome.tabs.query({});
+      const saveable = allTabs.filter(
+        (tab) => requestedIds.has(tab.id) && !tab.pinned && isSaveableTab(tab),
+      );
+
+      if (saveable.length === 0) return { ok: true, saved: 0, closed: 0 };
+
+      const { savedTabs = [] } = await chrome.storage.local.get("savedTabs");
+      const entries = saveable.map(makeSavedTabEntry);
+      try {
+        await chrome.storage.local.set({ savedTabs: savedTabs.concat(entries) });
+      } catch (err) {
+        return { ok: false, reason: "storage_full" };
+      }
+
+      const tabIds = saveable.map((tab) => tab.id);
+      tabIds.forEach((id) => tabsClosedByExtension.add(id));
+      await chrome.tabs.remove(tabIds);
+      return { ok: true, saved: tabIds.length, closed: tabIds.length };
     }
 
     case "getCleanupData": {
@@ -478,6 +516,7 @@ async function handleMessage(msg) {
           tabs: tabs.map((t) => ({
             tabId: t.id,
             title: t.title || t.url,
+            url: t.url,
             favIconUrl: t.favIconUrl || null,
             pinned: t.pinned,
             active: t.active,

@@ -11,6 +11,10 @@ function send(msg) {
   return chrome.runtime.sendMessage(msg);
 }
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function formatAge(ms) {
   const secs = Math.floor((Date.now() - ms) / 1000);
   if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
@@ -58,21 +62,87 @@ function makePlaceholder(title) {
   return el;
 }
 
+function setButtonBusy(btn, label) {
+  btn.disabled = true;
+  if (btn.classList.contains('btn-icon')) {
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+  } else {
+    btn.textContent = label;
+  }
+}
+
+function markButtonError(btn, label) {
+  btn.disabled = false;
+  if (btn.classList.contains('btn-icon')) {
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+  } else {
+    btn.textContent = label;
+  }
+  btn.classList.add('btn-error-flash');
+  setTimeout(() => btn.classList.remove('btn-error-flash'), 600);
+}
+
+function getRowsByTabIds(tabIds) {
+  const wanted = new Set(tabIds.map(String));
+  return [...document.querySelectorAll('.tab-row')].filter((row) =>
+    wanted.has(row.dataset.tabId),
+  );
+}
+
+async function confirmRows(tabIds, action) {
+  const rows = getRowsByTabIds(tabIds);
+  if (rows.length === 0) return;
+
+  const isSave = action === 'save';
+  rows.forEach((row) => {
+    row.classList.add('tab-row--committed', isSave ? 'tab-row--saved' : 'tab-row--closed');
+    row.querySelectorAll('button, input').forEach((control) => {
+      control.disabled = true;
+    });
+
+    const status = document.createElement('div');
+    status.className = 'tab-row-status';
+
+    const icon = document.createElement('span');
+    icon.className = 'material-symbols-outlined';
+    icon.textContent = isSave ? 'check' : 'close';
+    status.appendChild(icon);
+
+    const label = document.createElement('span');
+    label.textContent = isSave ? 'Saved' : 'Closed';
+    status.appendChild(label);
+
+    row.appendChild(status);
+  });
+
+  await delay(420);
+  rows.forEach((row) => row.classList.add('tab-row--exiting'));
+  await delay(140);
+}
+
 // ─── Row builder ─────────────────────────────────────────────────────────────
-function makeTabRow(tab) {
+function makeTabRow(tab, options = {}) {
+  const { selectable = true, showActions = true, onSelectionChange = null } = options;
   const row = document.createElement('div');
   row.className = 'tab-row';
   row.dataset.tabId = tab.tabId;
 
-  const checkbox = document.createElement('input');
-  checkbox.type = 'checkbox';
-  checkbox.className = 'tab-checkbox';
-  checkbox.dataset.tabId = tab.tabId;
-  if (tab.pinned) {
-    checkbox.disabled = true;
-    checkbox.title = 'Pinned tabs cannot be closed here';
+  if (selectable) {
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'tab-checkbox';
+    checkbox.dataset.tabId = tab.tabId;
+    if (tab.pinned) {
+      checkbox.disabled = true;
+      checkbox.title = 'Pinned tabs cannot be closed here';
+    }
+    if (onSelectionChange) {
+      checkbox.addEventListener('change', onSelectionChange);
+    }
+    row.appendChild(checkbox);
   }
-  row.appendChild(checkbox);
 
   row.appendChild(makeFavicon(tab.favIconUrl, tab.url || '', tab.title));
 
@@ -117,6 +187,39 @@ function makeTabRow(tab) {
   meta.appendChild(ageBadge);
 
   row.appendChild(meta);
+
+  if (showActions) {
+    row.classList.add('tab-row--actions');
+
+    const actions = document.createElement('div');
+    actions.className = 'tab-row-actions';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn btn-ghost btn-icon';
+    saveBtn.title = tab.pinned ? 'Pinned tabs cannot be closed here' : 'Save';
+    saveBtn.setAttribute('aria-label', 'Save');
+    saveBtn.disabled = tab.pinned;
+    const saveIcon = document.createElement('span');
+    saveIcon.className = 'material-symbols-outlined';
+    saveIcon.textContent = 'save';
+    saveBtn.appendChild(saveIcon);
+    saveBtn.addEventListener('click', () => handleSaveTabs([tab.tabId], saveBtn));
+    actions.appendChild(saveBtn);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'btn btn-danger btn-icon';
+    closeBtn.title = tab.pinned ? 'Pinned tabs cannot be closed here' : 'Close';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.disabled = tab.pinned;
+    const closeIcon = document.createElement('span');
+    closeIcon.className = 'material-symbols-outlined';
+    closeIcon.textContent = 'close';
+    closeBtn.appendChild(closeIcon);
+    closeBtn.addEventListener('click', () => handleCloseTabs([tab.tabId], closeBtn));
+    actions.appendChild(closeBtn);
+
+    row.appendChild(actions);
+  }
   return row;
 }
 
@@ -147,14 +250,17 @@ function renderDuplicates(groups) {
 
   groups.forEach((group) => {
     const extras = group.tabs.length - 1;
+    const groupEl = document.createElement('div');
+    groupEl.className = 'dup-group';
+
     const row = document.createElement('div');
     row.className = 'dup-url-row';
 
-    const firstTab = group.tabs.reduce((oldest, t) => {
-      if (oldest === null) return t;
-      if (t.openedAt === null) return oldest;
-      if (oldest.openedAt === null) return t;
-      return t.openedAt < oldest.openedAt ? t : oldest;
+    const firstTab = group.tabs.reduce((mostRecent, t) => {
+      if (mostRecent === null) return t;
+      if (t.openedAt === null) return mostRecent;
+      if (mostRecent.openedAt === null) return t;
+      return t.openedAt > mostRecent.openedAt ? t : mostRecent;
     }, null) || group.tabs[0];
 
     row.appendChild(makeFavicon(firstTab.favIconUrl, group.url, group.url));
@@ -169,7 +275,23 @@ function renderDuplicates(groups) {
     badge.textContent = `+${extras}`;
     row.appendChild(badge);
 
-    listEl.appendChild(row);
+    groupEl.appendChild(row);
+
+    const tabsEl = document.createElement('div');
+    tabsEl.className = 'dup-tab-list item-list';
+    group.tabs
+      .slice()
+      .sort((a, b) => {
+        if (a.openedAt === null) return 1;
+        if (b.openedAt === null) return -1;
+        return b.openedAt - a.openedAt;
+      })
+      .forEach((tab) => {
+        tabsEl.appendChild(makeTabRow(tab, { selectable: false, showActions: false }));
+      });
+    groupEl.appendChild(tabsEl);
+
+    listEl.appendChild(groupEl);
   });
 }
 
@@ -202,7 +324,7 @@ function renderStale(tabs) {
     emptyEl.style.display = '';
     emptyEl.textContent = `No tabs open longer than ${threshold} day${threshold !== 1 ? 's' : ''}.`;
     selectBtn.disabled = true;
-    updateCloseButton('stale');
+    updateSelectedButtons('stale');
     return;
   }
 
@@ -211,12 +333,13 @@ function renderStale(tabs) {
   listEl.innerHTML = '';
 
   tabs.forEach((tab) => {
-    const row = makeTabRow(tab);
-    row.querySelector('input[type="checkbox"]').addEventListener('change', () => updateCloseButton('stale'));
+    const row = makeTabRow(tab, {
+      onSelectionChange: () => updateSelectedButtons('stale'),
+    });
     listEl.appendChild(row);
   });
 
-  updateCloseButton('stale');
+  updateSelectedButtons('stale');
 }
 
 function renderSummary() {
@@ -234,17 +357,23 @@ function render() {
   renderStale(state.staleTabs);
 }
 
-// ─── Close button state ───────────────────────────────────────────────────────
-function updateCloseButton(section) {
+// ─── Selection button state ──────────────────────────────────────────────────
+function updateSelectedButtons(section) {
   const listEl = document.getElementById(`${section}List`);
-  const btn = document.getElementById(`${section}CloseSelected`);
+  const closeBtn = document.getElementById(`${section}CloseSelected`);
+  const saveBtn = document.getElementById(`${section}SaveSelected`);
   const selectBtn = document.getElementById(`${section}SelectAll`);
 
   const checkboxes = listEl.querySelectorAll('input[type="checkbox"]:not(:disabled)');
   const checked = listEl.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)');
 
-  btn.disabled = checked.length === 0;
-  btn.textContent = checked.length > 0 ? `Close ${checked.length}` : 'Close selected';
+  closeBtn.disabled = checked.length === 0;
+  closeBtn.textContent = checked.length > 0 ? `Close ${checked.length}` : 'Close selected';
+
+  if (saveBtn) {
+    saveBtn.disabled = checked.length === 0;
+    saveBtn.textContent = checked.length > 0 ? `Save ${checked.length}` : 'Save selected';
+  }
 
   if (checkboxes.length > 0 && !selectBtn.disabled) {
     const allChecked = checked.length === checkboxes.length;
@@ -258,7 +387,45 @@ function toggleSelectAll(section) {
   const checkboxes = listEl.querySelectorAll('input[type="checkbox"]:not(:disabled)');
   const allChecked = [...checkboxes].every((cb) => cb.checked);
   checkboxes.forEach((cb) => { cb.checked = !allChecked; });
-  updateCloseButton(section);
+  updateSelectedButtons(section);
+}
+
+function getSelectedTabIds(section) {
+  const listEl = document.getElementById(`${section}List`);
+  const checked = listEl.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)');
+  return [...checked].map((cb) => parseInt(cb.dataset.tabId, 10));
+}
+
+async function handleSaveTabs(tabIds, btn) {
+  if (tabIds.length === 0) return;
+
+  const originalLabel = btn.getAttribute('aria-label') || btn.textContent;
+  setButtonBusy(btn, `Saving ${tabIds.length}…`);
+
+  const res = await send({ action: 'saveTabs', tabIds });
+  if (!res?.ok) {
+    markButtonError(btn, res?.reason === 'storage_full' ? 'Storage full' : originalLabel);
+    return;
+  }
+
+  await confirmRows(tabIds, 'save');
+  await loadData({ silent: true });
+}
+
+async function handleCloseTabs(tabIds, btn) {
+  if (tabIds.length === 0) return;
+
+  const originalLabel = btn.getAttribute('aria-label') || btn.textContent;
+  setButtonBusy(btn, `Closing ${tabIds.length}…`);
+
+  const res = await send({ action: 'closeTabs', tabIds });
+  if (!res?.ok) {
+    markButtonError(btn, originalLabel);
+    return;
+  }
+
+  await confirmRows(tabIds, 'close');
+  await loadData({ silent: true });
 }
 
 // ─── Close handlers ──────────────────────────────────────────────────────────
@@ -281,30 +448,27 @@ async function handleCloseDuplicates() {
   btn.disabled = true;
   btn.textContent = `Closing ${tabIds.length}…`;
 
-  await send({ action: 'closeTabs', tabIds });
-  await loadData();
+  await handleCloseTabs(tabIds, btn);
 }
 
 async function handleCloseStale() {
-  const listEl = document.getElementById('staleList');
   const btn = document.getElementById('staleCloseSelected');
+  await handleCloseTabs(getSelectedTabIds('stale'), btn);
+}
 
-  const checked = listEl.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)');
-  const tabIds = [...checked].map((cb) => parseInt(cb.dataset.tabId, 10));
-
-  if (tabIds.length === 0) return;
-
-  btn.disabled = true;
-  btn.textContent = `Closing ${tabIds.length}…`;
-
-  await send({ action: 'closeTabs', tabIds });
-  await loadData();
+async function handleSaveStale() {
+  const btn = document.getElementById('staleSaveSelected');
+  await handleSaveTabs(getSelectedTabIds('stale'), btn);
 }
 
 // ─── Data load ───────────────────────────────────────────────────────────────
-async function loadData() {
-  document.getElementById('loadingState').style.display = '';
-  document.getElementById('mainContent').style.display = 'none';
+async function loadData(options = {}) {
+  const { silent = false } = options;
+
+  if (!silent) {
+    document.getElementById('loadingState').style.display = '';
+    document.getElementById('mainContent').style.display = 'none';
+  }
 
   const res = await send({ action: 'getCleanupData' });
 
@@ -318,8 +482,10 @@ async function loadData() {
   state.staleThresholdDays = res.staleThresholdDays;
   state.totalOpen = res.totalOpen;
 
-  document.getElementById('loadingState').style.display = 'none';
-  document.getElementById('mainContent').style.display = '';
+  if (!silent) {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('mainContent').style.display = '';
+  }
 
   render();
 }
@@ -333,6 +499,7 @@ document.getElementById('openOptions').addEventListener('click', () => {
 });
 document.getElementById('dupCloseExtras').addEventListener('click', handleCloseDuplicates);
 document.getElementById('staleSelectAll').addEventListener('click', () => toggleSelectAll('stale'));
+document.getElementById('staleSaveSelected').addEventListener('click', handleSaveStale);
 document.getElementById('staleCloseSelected').addEventListener('click', handleCloseStale);
 
 loadData();

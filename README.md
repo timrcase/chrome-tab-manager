@@ -12,7 +12,7 @@ A Chrome extension for power users who accumulate tabs. Save, tag, back up, and 
 
 **Backup** — Automatically snapshot all open tabs on a configurable schedule. Restore individual tabs or entire snapshots into a new window, preserving tab groups.
 
-**Archive** — Every tab you close is silently archived with its title, URL, and timestamp. Search by title or URL, restore with one click, or let old entries auto-purge on a configurable schedule.
+**Archive** — Automatically close stale, unpinned tabs on the backup cadence and keep them in a recoverable archive. Search by title or URL, restore with one click, or let old entries auto-purge on a configurable retention window.
 
 **Cleanup** — Right-click the extension icon → Cleanup Tabs to find duplicate tabs (keeps the most recently accessed copy) and stale tabs that haven't been touched in N days.
 

@@ -603,7 +603,7 @@ function renderArchive() {
 
   noteEl.textContent = purgeDays === 0
     ? 'Archive is kept forever (no purge configured).'
-    : `Tabs are automatically removed after ${purgeDays} day${purgeDays !== 1 ? 's' : ''}.`;
+    : `Archived stale tabs are permanently removed after ${purgeDays} day${purgeDays !== 1 ? 's' : ''}.`;
 
   const entries = [...state.archiveList].reverse().filter((entry) => {
     if (!query) return true;

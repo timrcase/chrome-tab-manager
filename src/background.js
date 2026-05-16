@@ -1,8 +1,8 @@
 // ─── In-memory state ────────────────────────────────────────────────────────
-// Maps Chrome tab IDs to their last-known data so onRemoved can archive them.
+// Maps Chrome tab IDs to their last-known data for lightweight lifecycle hygiene.
 const tabCache = new Map();
 
-// Tab IDs closed by the extension itself — skip archiving these.
+// Tab IDs closed by the extension itself; clear them when Chrome reports removal.
 const tabsClosedByExtension = new Set();
 
 // ─── Default settings ────────────────────────────────────────────────────────
@@ -12,8 +12,12 @@ const DEFAULT_SETTINGS = {
   backupMaxSnapshots: 10,
   archiveEnabled: true,
   archivePurgeDays: 30,
-  staleTabThresholdDays: 14,
+  archiveStaleThresholdDays: 14,
+  cleanupStaleThresholdDays: 15,
 };
+
+const CLEANUP_STALE_THRESHOLD_STEP = 15;
+const CLEANUP_STALE_THRESHOLD_MAX = 360;
 
 // ─── Dev badge ───────────────────────────────────────────────────────────────
 if (!chrome.runtime.getManifest().update_url) {
@@ -72,7 +76,17 @@ async function initSettings() {
     await chrome.storage.local.set({ settings: DEFAULT_SETTINGS });
   } else {
     // Fill in any missing keys from defaults (handles extension updates)
-    const merged = { ...DEFAULT_SETTINGS, ...settings };
+    const legacyStaleThreshold = settings.staleTabThresholdDays;
+    const merged = {
+      ...DEFAULT_SETTINGS,
+      ...settings,
+      archiveStaleThresholdDays:
+        settings.archiveStaleThresholdDays ?? legacyStaleThreshold ?? DEFAULT_SETTINGS.archiveStaleThresholdDays,
+      cleanupStaleThresholdDays: cleanupThresholdSetting(
+        settings.cleanupStaleThresholdDays ?? legacyStaleThreshold,
+      ),
+    };
+    delete merged.staleTabThresholdDays;
     await chrome.storage.local.set({ settings: merged });
   }
 }
@@ -126,30 +140,9 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 chrome.tabs.onRemoved.addListener(async (tabId) => {
   if (tabsClosedByExtension.has(tabId)) {
     tabsClosedByExtension.delete(tabId);
-    tabCache.delete(tabId);
-    return;
   }
 
-  const cached = tabCache.get(tabId);
   tabCache.delete(tabId);
-
-  if (!cached) return;
-
-  const { settings = DEFAULT_SETTINGS } =
-    await chrome.storage.local.get("settings");
-  if (settings.archiveEnabled === false) return;
-
-  const entry = {
-    id: crypto.randomUUID(),
-    url: cached.url,
-    title: cached.title,
-    favIconUrl: cached.favIconUrl,
-    closedAt: Date.now(),
-  };
-
-  const { archiveList = [] } = await chrome.storage.local.get("archiveList");
-  archiveList.push(entry);
-  await chrome.storage.local.set({ archiveList });
 });
 
 // ─── Omnibox ─────────────────────────────────────────────────────────────────
@@ -207,23 +200,25 @@ async function rescheduleAlarms() {
   const { settings = DEFAULT_SETTINGS } =
     await chrome.storage.local.get("settings");
 
-  if (settings.backupEnabled !== false) {
+  if (settings.backupEnabled !== false || settings.archiveEnabled !== false) {
     const period = Math.max(1, settings.backupIntervalMinutes || 60);
     chrome.alarms.create("backup", { periodInMinutes: period });
   }
-
-  // Archive purge runs daily
-  chrome.alarms.create("archivePurge", { periodInMinutes: 1440 });
 }
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === "backup") await runBackup();
-  if (alarm.name === "archivePurge") await runArchivePurge();
+  if (alarm.name === "backup") {
+    await runBackup();
+    await runStaleArchive();
+    await runArchivePurge();
+  }
 });
 
 async function runBackup() {
   const { settings = DEFAULT_SETTINGS } =
     await chrome.storage.local.get("settings");
+  if (settings.backupEnabled === false) return;
+
   const maxSnapshots = settings.backupMaxSnapshots || 10;
 
   const [allTabs, allGroups] = await Promise.all([
@@ -259,9 +254,52 @@ async function runBackup() {
   await chrome.storage.local.set({ backupList: trimmed });
 }
 
+async function runStaleArchive() {
+  const { settings = DEFAULT_SETTINGS, archiveList = [] } =
+    await chrome.storage.local.get(["settings", "archiveList"]);
+
+  if (settings.archiveEnabled === false) return;
+
+  const thresholdDays =
+    settings.archiveStaleThresholdDays ??
+    settings.staleTabThresholdDays ??
+    DEFAULT_SETTINGS.archiveStaleThresholdDays;
+  if (thresholdDays <= 0) return;
+
+  const cutoff = Date.now() - thresholdDays * 24 * 60 * 60 * 1000;
+  const allTabs = await chrome.tabs.query({});
+  const staleTabs = allTabs.filter(
+    (tab) =>
+      isSaveableTab(tab) &&
+      !tab.pinned &&
+      !tab.active &&
+      tab.lastAccessed !== undefined &&
+      tab.lastAccessed < cutoff,
+  );
+
+  if (staleTabs.length === 0) return;
+
+  const now = Date.now();
+  const entries = staleTabs.map((tab) => ({
+    id: crypto.randomUUID(),
+    url: tab.url,
+    title: tab.title || tab.url,
+    favIconUrl: tab.favIconUrl || null,
+    closedAt: now,
+  }));
+
+  await chrome.storage.local.set({ archiveList: archiveList.concat(entries) });
+
+  const tabIds = staleTabs.map((tab) => tab.id);
+  tabIds.forEach((id) => tabsClosedByExtension.add(id));
+  await chrome.tabs.remove(tabIds);
+}
+
 async function runArchivePurge() {
   const { settings = DEFAULT_SETTINGS, archiveList = [] } =
     await chrome.storage.local.get(["settings", "archiveList"]);
+  if (settings.archiveEnabled === false) return;
+
   const purgeDays = settings.archivePurgeDays ?? 30;
 
   if (purgeDays === 0) return; // 0 = never purge
@@ -292,6 +330,28 @@ function makeSavedTabEntry(tab) {
     goCode: null,
     savedAt: Date.now(),
   };
+}
+
+function numberSetting(value, fallback, min) {
+  const parsed = parseInt(value, 10);
+  if (Number.isNaN(parsed)) return fallback;
+  return Math.max(min, parsed);
+}
+
+function staleSetting(settings, key, legacyFallback) {
+  return numberSetting(
+    settings[key] ?? settings.staleTabThresholdDays,
+    legacyFallback,
+    0,
+  );
+}
+
+function cleanupThresholdSetting(value) {
+  const parsed = parseInt(value, 10);
+  const raw = Number.isNaN(parsed) ? DEFAULT_SETTINGS.cleanupStaleThresholdDays : parsed;
+  if (raw <= 0) return 0;
+  const snapped = Math.round(raw / CLEANUP_STALE_THRESHOLD_STEP) * CLEANUP_STALE_THRESHOLD_STEP;
+  return Math.max(CLEANUP_STALE_THRESHOLD_STEP, Math.min(CLEANUP_STALE_THRESHOLD_MAX, snapped));
 }
 
 // ─── Message handler (from popup.js / options.js / cleanup.js) ───────────────
@@ -409,23 +469,29 @@ async function handleMessage(msg) {
       const s = msg.settings || {};
       const validated = {
         backupEnabled: Boolean(s.backupEnabled),
-        backupIntervalMinutes: Math.max(
+        backupIntervalMinutes: numberSetting(
+          s.backupIntervalMinutes,
+          DEFAULT_SETTINGS.backupIntervalMinutes,
           1,
-          parseInt(s.backupIntervalMinutes) ||
-            DEFAULT_SETTINGS.backupIntervalMinutes,
         ),
-        backupMaxSnapshots: Math.max(
+        backupMaxSnapshots: numberSetting(
+          s.backupMaxSnapshots,
+          DEFAULT_SETTINGS.backupMaxSnapshots,
           1,
-          parseInt(s.backupMaxSnapshots) || DEFAULT_SETTINGS.backupMaxSnapshots,
         ),
         archiveEnabled: Boolean(s.archiveEnabled),
-        archivePurgeDays: Math.max(
+        archivePurgeDays: numberSetting(
+          s.archivePurgeDays,
+          DEFAULT_SETTINGS.archivePurgeDays,
           0,
-          parseInt(s.archivePurgeDays) || DEFAULT_SETTINGS.archivePurgeDays,
         ),
-        staleTabThresholdDays: Math.max(
-          0,
-          parseInt(s.staleTabThresholdDays) || 0,
+        archiveStaleThresholdDays: staleSetting(
+          s,
+          "archiveStaleThresholdDays",
+          DEFAULT_SETTINGS.archiveStaleThresholdDays,
+        ),
+        cleanupStaleThresholdDays: cleanupThresholdSetting(
+          s.cleanupStaleThresholdDays ?? s.staleTabThresholdDays,
         ),
       };
       await chrome.storage.local.set({ settings: validated });
@@ -492,6 +558,18 @@ async function handleMessage(msg) {
     case "getCleanupData": {
       const { settings = DEFAULT_SETTINGS } =
         await chrome.storage.local.get("settings");
+      const normalizedSettings = {
+        ...DEFAULT_SETTINGS,
+        ...settings,
+        archiveStaleThresholdDays:
+          settings.archiveStaleThresholdDays ??
+          settings.staleTabThresholdDays ??
+          DEFAULT_SETTINGS.archiveStaleThresholdDays,
+        cleanupStaleThresholdDays:
+          cleanupThresholdSetting(
+            settings.cleanupStaleThresholdDays ?? settings.staleTabThresholdDays,
+          ),
+      };
       const allTabs = await chrome.tabs.query({});
 
       const usableTabs = allTabs.filter(
@@ -527,8 +605,7 @@ async function handleMessage(msg) {
 
       // Stale tabs — based on lastAccessed (native Chrome property)
       const thresholdDays =
-        settings.staleTabThresholdDays ??
-        DEFAULT_SETTINGS.staleTabThresholdDays;
+        normalizedSettings.cleanupStaleThresholdDays;
       let staleTabs = [];
       if (thresholdDays > 0) {
         const cutoff = Date.now() - thresholdDays * 86400000;
@@ -553,6 +630,7 @@ async function handleMessage(msg) {
         duplicateGroups,
         staleTabs,
         staleThresholdDays: thresholdDays,
+        settings: normalizedSettings,
         totalOpen: usableTabs.length,
       };
     }

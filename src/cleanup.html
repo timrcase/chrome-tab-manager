@@ -32,6 +32,8 @@
             Duplicate Tabs
             <span class="material-symbols-outlined info-icon" data-tooltip="Multiple tabs open to the same URL. Most recently accessed will be kept.">info</span>
           </div>
+        </div>
+        <div class="card-toolbar">
           <div class="card-actions">
             <button class="btn btn-danger btn-sm" id="dupCloseExtras" disabled>Close extras</button>
           </div>
@@ -48,7 +50,14 @@
             Stale Tabs
             <span class="material-symbols-outlined info-icon" id="staleInfoIcon" data-tooltip=""></span>
           </div>
-          <div class="card-actions" id="staleActions">
+        </div>
+        <div class="card-toolbar stale-toolbar" id="staleActions">
+          <label class="stale-threshold-control" for="cleanupStaleThresholdDays">
+            <span class="stale-threshold-label">inactive &gt;</span>
+            <input type="range" id="cleanupStaleThresholdDays" min="0" max="360" step="15" />
+            <output id="cleanupStaleThresholdValue" for="cleanupStaleThresholdDays">15d</output>
+          </label>
+          <div class="card-actions">
             <button class="btn btn-ghost btn-sm" id="staleSelectAll">Select all</button>
             <button class="btn btn-ghost btn-sm" id="staleSaveSelected" disabled>Save selected</button>
             <button class="btn btn-danger btn-sm" id="staleCloseSelected" disabled>Close selected</button>

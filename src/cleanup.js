@@ -2,9 +2,16 @@
 let state = {
   duplicateGroups: [],
   staleTabs: [],
-  staleThresholdDays: 14,
+  staleThresholdDays: 15,
+  settings: {},
   totalOpen: 0,
 };
+
+const CLEANUP_THRESHOLD_STEP = 15;
+const CLEANUP_THRESHOLD_MAX = 360;
+let cleanupThresholdPointerActive = false;
+let cleanupThresholdCommitPromise = null;
+let pendingCleanupThreshold = null;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function send(msg) {
@@ -13,6 +20,18 @@ function send(msg) {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function normalizeThreshold(value, fallback) {
+  const n = parseInt(value, 10);
+  const raw = Number.isNaN(n) ? fallback : n;
+  if (raw <= 0) return 0;
+  const snapped = Math.round(raw / CLEANUP_THRESHOLD_STEP) * CLEANUP_THRESHOLD_STEP;
+  return Math.max(CLEANUP_THRESHOLD_STEP, Math.min(CLEANUP_THRESHOLD_MAX, snapped));
+}
+
+function formatThresholdLabel(value) {
+  return value === 0 ? 'off' : `${value}d`;
 }
 
 function formatAge(ms) {
@@ -302,15 +321,23 @@ function renderStale(tabs) {
   const infoIcon = document.getElementById('staleInfoIcon');
   const actionsEl = document.getElementById('staleActions');
   const selectBtn = document.getElementById('staleSelectAll');
-  const threshold = state.staleThresholdDays;
+  const thresholdInput = document.getElementById('cleanupStaleThresholdDays');
+  const thresholdValue = document.getElementById('cleanupStaleThresholdValue');
+  const threshold = normalizeThreshold(state.staleThresholdDays, 15);
+
+  thresholdInput.value = threshold;
+  thresholdValue.textContent = formatThresholdLabel(threshold);
 
   if (threshold === 0) {
-    infoIcon.dataset.tooltip = 'Stale tab detection is disabled. Enable it in Options.';
+    infoIcon.dataset.tooltip = 'Stale tab detection is disabled. Set inactive days above 0.';
     infoIcon.textContent = 'info';
-    actionsEl.style.display = 'none';
+    actionsEl.style.display = '';
     listEl.innerHTML = '';
-    emptyEl.style.display = 'none';
+    emptyEl.style.display = '';
+    emptyEl.textContent = 'Stale tab detection is disabled.';
     countEl.textContent = 0;
+    selectBtn.disabled = true;
+    updateSelectedButtons('stale');
     return;
   }
 
@@ -461,6 +488,70 @@ async function handleSaveStale() {
   await handleSaveTabs(getSelectedTabIds('stale'), btn);
 }
 
+async function handleCleanupThresholdChange() {
+  if (cleanupThresholdCommitPromise) {
+    await cleanupThresholdCommitPromise;
+  }
+
+  const input = document.getElementById('cleanupStaleThresholdDays');
+  const output = document.getElementById('cleanupStaleThresholdValue');
+
+  const nextThreshold = pendingCleanupThreshold ?? normalizeThreshold(input.value, state.staleThresholdDays);
+  input.value = nextThreshold;
+  output.textContent = formatThresholdLabel(nextThreshold);
+  pendingCleanupThreshold = null;
+
+  if (nextThreshold === state.staleThresholdDays) return;
+
+  const settings = {
+    ...state.settings,
+    cleanupStaleThresholdDays: nextThreshold,
+  };
+
+  cleanupThresholdCommitPromise = send({ action: 'updateSettings', settings });
+  const res = await cleanupThresholdCommitPromise;
+  cleanupThresholdCommitPromise = null;
+
+  if (!res?.ok) {
+    input.value = state.staleThresholdDays;
+    output.textContent = formatThresholdLabel(state.staleThresholdDays);
+    pendingCleanupThreshold = null;
+    return;
+  }
+
+  state.settings = settings;
+  state.staleThresholdDays = nextThreshold;
+  await loadData({ silent: true });
+}
+
+function handleCleanupThresholdInput() {
+  const input = document.getElementById('cleanupStaleThresholdDays');
+  const output = document.getElementById('cleanupStaleThresholdValue');
+  const nextThreshold = normalizeThreshold(input.value, state.staleThresholdDays);
+  pendingCleanupThreshold = nextThreshold;
+  output.textContent = formatThresholdLabel(nextThreshold);
+}
+
+function handleCleanupThresholdPointerDown() {
+  cleanupThresholdPointerActive = true;
+  pendingCleanupThreshold = normalizeThreshold(
+    document.getElementById('cleanupStaleThresholdDays').value,
+    state.staleThresholdDays,
+  );
+}
+
+function handleCleanupThresholdPointerUp() {
+  if (!cleanupThresholdPointerActive) return;
+  cleanupThresholdPointerActive = false;
+  handleCleanupThresholdChange();
+}
+
+function handleCleanupThresholdKeyUp(e) {
+  if (e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End') {
+    handleCleanupThresholdChange();
+  }
+}
+
 // ─── Data load ───────────────────────────────────────────────────────────────
 async function loadData(options = {}) {
   const { silent = false } = options;
@@ -480,7 +571,9 @@ async function loadData(options = {}) {
   state.duplicateGroups = res.duplicateGroups;
   state.staleTabs = res.staleTabs;
   state.staleThresholdDays = res.staleThresholdDays;
+  state.settings = res.settings || state.settings;
   state.totalOpen = res.totalOpen;
+  pendingCleanupThreshold = null;
 
   if (!silent) {
     document.getElementById('loadingState').style.display = 'none';
@@ -501,5 +594,12 @@ document.getElementById('dupCloseExtras').addEventListener('click', handleCloseD
 document.getElementById('staleSelectAll').addEventListener('click', () => toggleSelectAll('stale'));
 document.getElementById('staleSaveSelected').addEventListener('click', handleSaveStale);
 document.getElementById('staleCloseSelected').addEventListener('click', handleCloseStale);
+document.getElementById('cleanupStaleThresholdDays').addEventListener('input', handleCleanupThresholdInput);
+document.getElementById('cleanupStaleThresholdDays').addEventListener('change', handleCleanupThresholdChange);
+document.getElementById('cleanupStaleThresholdDays').addEventListener('pointerdown', handleCleanupThresholdPointerDown);
+document.getElementById('cleanupStaleThresholdDays').addEventListener('pointerup', handleCleanupThresholdPointerUp);
+document.getElementById('cleanupStaleThresholdDays').addEventListener('blur', handleCleanupThresholdChange);
+document.getElementById('cleanupStaleThresholdDays').addEventListener('keyup', handleCleanupThresholdKeyUp);
+document.addEventListener('pointerup', handleCleanupThresholdPointerUp);
 
 loadData();

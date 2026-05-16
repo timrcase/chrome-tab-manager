@@ -179,6 +179,55 @@ body {
   gap: 6px;
 }
 
+.card-toolbar {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin: 10px 0 12px;
+  padding-top: 10px;
+}
+
+.stale-toolbar {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.stale-threshold-control {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 11px;
+  gap: 10px;
+  max-width: 310px;
+  text-transform: none;
+}
+
+.stale-threshold-label {
+  flex-shrink: 0;
+}
+
+.stale-threshold-control input {
+  accent-color: var(--accent);
+  flex: 1;
+  min-width: 90px;
+}
+
+.stale-threshold-control input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.stale-threshold-control output {
+  color: var(--text);
+  flex-shrink: 0;
+  min-width: 32px;
+  text-align: right;
+}
+
 .count-badge {
   background: var(--surface-2);
   border-radius: 10px;
@@ -206,6 +255,10 @@ body {
   color: var(--text-muted);
   font-size: 13px;
   padding: 16px 0 4px;
+}
+
+#dupEmpty {
+  text-align: center;
 }
 
 /* ─── Duplicate URL list ────────────────────────────────────────────────────── */
@@ -507,6 +560,15 @@ body {
 
   .card-actions {
     flex-wrap: wrap;
+  }
+
+  .stale-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .stale-threshold-control {
+    max-width: none;
   }
 
   .tab-row {

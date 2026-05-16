@@ -4,14 +4,15 @@ const DEFAULT_SETTINGS = {
   backupMaxSnapshots: 10,
   archiveEnabled: true,
   archivePurgeDays: 30,
-  staleTabThresholdDays: 14,
+  archiveStaleThresholdDays: 14,
+  cleanupStaleThresholdDays: 15,
 };
 
 const NUMBER_FIELDS = {
   backupIntervalMinutes: { min: 1, max: 10080 },
   backupMaxSnapshots: { min: 1, max: 100 },
   archivePurgeDays: { min: 0, max: 3650 },
-  staleTabThresholdDays: { min: 0, max: 365 },
+  archiveStaleThresholdDays: { min: 0, max: 365 },
 };
 
 const TOGGLE_FIELDS = ['backupEnabled', 'archiveEnabled'];
@@ -19,24 +20,42 @@ const TOGGLE_FIELDS = ['backupEnabled', 'archiveEnabled'];
 // ─── Load settings into form ──────────────────────────────────────────────────
 async function loadSettings() {
   const { settings = DEFAULT_SETTINGS } = await chrome.storage.local.get('settings');
-  const s = { ...DEFAULT_SETTINGS, ...settings };
+  const s = {
+    ...DEFAULT_SETTINGS,
+    ...settings,
+    archiveStaleThresholdDays:
+      settings.archiveStaleThresholdDays ?? settings.staleTabThresholdDays ?? DEFAULT_SETTINGS.archiveStaleThresholdDays,
+    cleanupStaleThresholdDays:
+      settings.cleanupStaleThresholdDays ?? settings.staleTabThresholdDays ?? DEFAULT_SETTINGS.cleanupStaleThresholdDays,
+  };
 
   document.getElementById('backupEnabled').checked = s.backupEnabled !== false;
   document.getElementById('backupIntervalMinutes').value = s.backupIntervalMinutes;
   document.getElementById('backupMaxSnapshots').value = s.backupMaxSnapshots;
   document.getElementById('archiveEnabled').checked = s.archiveEnabled !== false;
   document.getElementById('archivePurgeDays').value = s.archivePurgeDays;
-  document.getElementById('staleTabThresholdDays').value = s.staleTabThresholdDays;
+  document.getElementById('archiveStaleThresholdDays').value = s.archiveStaleThresholdDays;
 
   updateBackupRowVisibility();
+  updateArchiveRowVisibility();
 }
 
 function updateBackupRowVisibility() {
-  const enabled = document.getElementById('backupEnabled').checked;
-  document.getElementById('backupIntervalRow').style.opacity = enabled ? '1' : '0.4';
-  document.getElementById('backupMaxRow').style.opacity = enabled ? '1' : '0.4';
-  document.getElementById('backupIntervalMinutes').disabled = !enabled;
-  document.getElementById('backupMaxSnapshots').disabled = !enabled;
+  const backupEnabled = document.getElementById('backupEnabled').checked;
+  const archiveEnabled = document.getElementById('archiveEnabled').checked;
+  const intervalEnabled = backupEnabled || archiveEnabled;
+  document.getElementById('backupIntervalRow').style.opacity = intervalEnabled ? '1' : '0.4';
+  document.getElementById('backupMaxRow').style.opacity = backupEnabled ? '1' : '0.4';
+  document.getElementById('backupIntervalMinutes').disabled = !intervalEnabled;
+  document.getElementById('backupMaxSnapshots').disabled = !backupEnabled;
+}
+
+function updateArchiveRowVisibility() {
+  const enabled = document.getElementById('archiveEnabled').checked;
+  document.getElementById('archiveStaleThresholdRow').style.opacity = enabled ? '1' : '0.4';
+  document.getElementById('archivePurgeRow').style.opacity = enabled ? '1' : '0.4';
+  document.getElementById('archiveStaleThresholdDays').disabled = !enabled;
+  document.getElementById('archivePurgeDays').disabled = !enabled;
 }
 
 // ─── Autosave ─────────────────────────────────────────────────────────────────
@@ -116,6 +135,10 @@ Object.keys(NUMBER_FIELDS).forEach(bindNumberField);
 TOGGLE_FIELDS.forEach(bindToggleField);
 
 document.getElementById('backupEnabled').addEventListener('change', updateBackupRowVisibility);
+document.getElementById('archiveEnabled').addEventListener('change', () => {
+  updateBackupRowVisibility();
+  updateArchiveRowVisibility();
+});
 
 // ─── Storage management ───────────────────────────────────────────────────────
 document.getElementById('exportData').addEventListener('click', async () => {

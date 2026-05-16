@@ -31,8 +31,8 @@
 
       <div class="form-row" id="backupIntervalRow">
         <label class="form-label" for="backupIntervalMinutes">
-          Backup interval
-          <span class="form-sublabel">Minimum 1 minute</span>
+          Run interval
+          <span class="form-sublabel">Backups and stale archive sweeps run on this cadence. Minimum 1 minute.</span>
         </label>
         <div class="form-control">
           <div class="num-input-wrap">
@@ -63,8 +63,8 @@
 
       <div class="form-row">
         <label class="form-label" for="archiveEnabled">
-          Archive tabs when closed
-          <span class="form-sublabel">Track all tabs closed by any means</span>
+          Auto-archive stale tabs
+          <span class="form-sublabel">Close inactive, unpinned tabs on the run interval and keep them in Archive</span>
         </label>
         <div class="toggle-wrap">
           <input type="checkbox" id="archiveEnabled" />
@@ -72,10 +72,24 @@
         </div>
       </div>
 
-      <div class="form-row">
+      <div class="form-row" id="archiveStaleThresholdRow">
+        <label class="form-label" for="archiveStaleThresholdDays">
+          Auto-archive tabs inactive for
+          <span class="form-sublabel">Inactive, unpinned tabs past this age are closed and moved to Archive. Set to 0 to disable stale archiving.</span>
+        </label>
+        <div class="form-control">
+          <div class="num-input-wrap">
+            <input type="number" id="archiveStaleThresholdDays" class="form-input" min="0" max="365" step="1" />
+            <span class="input-unit">days</span>
+          </div>
+          <div class="form-error" data-for="archiveStaleThresholdDays"></div>
+        </div>
+      </div>
+
+      <div class="form-row" id="archivePurgeRow">
         <label class="form-label" for="archivePurgeDays">
-          Purge entries older than
-          <span class="form-sublabel">Set to 0 to keep archive entries forever</span>
+          Keep archived tabs for
+          <span class="form-sublabel">Archived stale tabs older than this are permanently removed. Set to 0 to keep forever.</span>
         </label>
         <div class="form-control">
           <div class="num-input-wrap">
@@ -83,25 +97,6 @@
             <span class="input-unit">days</span>
           </div>
           <div class="form-error" data-for="archivePurgeDays"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Cleanup settings -->
-    <div class="card">
-      <div class="card-title">Cleanup</div>
-
-      <div class="form-row">
-        <label class="form-label" for="staleTabThresholdDays">
-          Stale tab threshold
-          <span class="form-sublabel">Tabs not accessed in this many days appear in Cleanup. Set to 0 to disable.</span>
-        </label>
-        <div class="form-control">
-          <div class="num-input-wrap">
-            <input type="number" id="staleTabThresholdDays" class="form-input" min="0" max="365" step="1" />
-            <span class="input-unit">days</span>
-          </div>
-          <div class="form-error" data-for="staleTabThresholdDays"></div>
         </div>
       </div>
     </div>

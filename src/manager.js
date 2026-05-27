@@ -101,6 +101,7 @@ async function loadAll() {
   state.archiveList = data.archiveList || [];
   state.settings = data.settings || {};
   render();
+  if (!otState.loaded) loadOpenTabs();
 }
 
 // ─── Render ───────────────────────────────────────────────────────────────────
@@ -139,33 +140,35 @@ function renderTagFilters() {
 
   area.style.display = allTags.length ? 'flex' : 'none';
 
-  chipsEl.innerHTML = '';
-  allTags.forEach((tag) => {
-    const chip = document.createElement('button');
-    chip.className = 'tag-chip' + (state.activeTags.has(tag) ? ' active' : '');
-    chip.textContent = tag;
-    chip.onclick = () => {
-      if (state.activeTags.has(tag)) {
-        state.activeTags.delete(tag);
-      } else {
-        state.activeTags.add(tag);
-      }
-      renderSaved();
-    };
-    chipsEl.appendChild(chip);
-  });
+  const existing = [...chipsEl.querySelectorAll('.tag-chip')];
+  const existingTags = existing.map((c) => c.dataset.tag);
+  const sameSet = existingTags.length === allTags.length && allTags.every((t, i) => t === existingTags[i]);
 
-  clearBtn.style.display = state.activeTags.size ? 'block' : 'none';
+  if (sameSet) {
+    existing.forEach((c) => c.classList.toggle('active', state.activeTags.has(c.dataset.tag)));
+  } else {
+    chipsEl.innerHTML = '';
+    allTags.forEach((tag) => {
+      const chip = document.createElement('button');
+      chip.className = 'tag-chip' + (state.activeTags.has(tag) ? ' active' : '');
+      chip.dataset.tag = tag;
+      chip.textContent = tag;
+      chip.onclick = () => {
+        if (state.activeTags.has(tag)) state.activeTags.delete(tag);
+        else state.activeTags.add(tag);
+        renderSaved();
+      };
+      chipsEl.appendChild(chip);
+    });
+  }
+
+  clearBtn.style.visibility = state.activeTags.size ? 'visible' : 'hidden';
 }
 
 function renderSaved() {
   renderTagFilters();
   const container = document.getElementById('savedList');
-  const filtered = filterSaved();
-
-  const expandedIds = new Set(
-    [...container.querySelectorAll('.item-card.expanded')].map((el) => el.dataset.id)
-  );
+  const filtered = [...filterSaved()].reverse();
 
   if (filtered.length === 0) {
     const msg = state.savedTabs.length === 0
@@ -175,12 +178,25 @@ function renderSaved() {
     return;
   }
 
-  container.innerHTML = '';
-  // Show newest first
-  [...filtered].reverse().forEach((tab) => {
-    const card = makeSavedCard(tab);
-    if (expandedIds.has(tab.id)) card.classList.add('expanded');
-    container.appendChild(card);
+  // Remove empty-state if present
+  const empty = container.querySelector('.empty-state');
+  if (empty) empty.remove();
+
+  // Remove cards no longer in filtered set
+  const filteredIds = new Set(filtered.map((t) => t.id));
+  container.querySelectorAll('.item-card').forEach((el) => {
+    if (!filteredIds.has(el.dataset.id)) el.remove();
+  });
+
+  // Insert/reorder cards without full rebuild
+  filtered.forEach((tab, i) => {
+    const existing = container.querySelector(`.item-card[data-id="${tab.id}"]`);
+    const refNode = container.children[i] || null;
+    if (existing) {
+      if (existing !== refNode) container.insertBefore(existing, refNode);
+    } else {
+      container.insertBefore(makeSavedCard(tab), refNode);
+    }
   });
 }
 
@@ -189,106 +205,107 @@ function makeSavedCard(tab) {
   card.className = 'item-card';
   card.dataset.id = tab.id;
 
-  // Main row (clickable to expand)
   const main = document.createElement('div');
   main.className = 'item-main';
 
   main.appendChild(makeFavicon(tab.favIconUrl, tab.url, tab.title));
 
-  if (tab.goCode) {
-    const badge = document.createElement('span');
-    badge.className = 'go-badge';
-    badge.textContent = `go: ${tab.goCode} →`;
-    main.appendChild(badge);
-  }
-
   const info = document.createElement('div');
   info.className = 'item-info';
-  info.innerHTML = `<div class="item-title">${escapeHtml(tab.title)}</div>
-    <div class="item-url">${escapeHtml(tab.url)}</div>`;
+
+  const titleEl = document.createElement('div');
+  titleEl.className = 'item-title';
+  titleEl.textContent = tab.title;
+
+  const urlEl = document.createElement('button');
+  urlEl.type = 'button';
+  urlEl.className = 'item-url item-open-target';
+  urlEl.textContent = tab.url;
+  urlEl.title = 'Open saved tab';
+  urlEl.onclick = () => send({ action: 'restoreSavedTab', id: tab.id });
+
+  info.appendChild(titleEl);
+  info.appendChild(urlEl);
   main.appendChild(info);
+
+  main.appendChild(makeInlineTags(tab));
 
   const meta = document.createElement('div');
   meta.className = 'item-meta';
 
-  (tab.tags || []).slice(0, 3).forEach((tag) => {
-    const pill = document.createElement('span');
-    pill.className = 'tag-pill';
-    pill.textContent = tag;
-    meta.appendChild(pill);
-  });
-
-  const expandIcon = document.createElement('span');
-  expandIcon.className = 'expand-icon';
-  expandIcon.textContent = '▾';
-  meta.appendChild(expandIcon);
+  const openBtn = document.createElement('button');
+  openBtn.type = 'button';
+  openBtn.className = 'btn btn-primary btn-icon';
+  openBtn.title = 'Open saved tab';
+  openBtn.setAttribute('aria-label', 'Open saved tab');
+  const openIcon = document.createElement('span');
+  openIcon.className = 'material-symbols-outlined';
+  openIcon.textContent = 'open_in_new';
+  openBtn.appendChild(openIcon);
+  openBtn.onclick = () => send({ action: 'restoreSavedTab', id: tab.id });
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'btn btn-ghost btn-icon saved-delete-btn';
+  deleteBtn.title = 'Delete';
+  deleteBtn.setAttribute('aria-label', 'Delete saved tab');
+  const deleteIcon = document.createElement('span');
+  deleteIcon.className = 'material-symbols-outlined';
+  deleteIcon.textContent = 'delete';
+  deleteBtn.appendChild(deleteIcon);
+  deleteBtn.onclick = async () => {
+    await send({ action: 'deleteSavedTab', id: tab.id });
+    state.savedTabs = state.savedTabs.filter((t) => t.id !== tab.id);
+    state.activeTags = new Set([...state.activeTags].filter((tag) => getAllTags().includes(tag)));
+    render();
+  };
+  meta.appendChild(deleteBtn);
+  meta.appendChild(openBtn);
 
   main.appendChild(meta);
-  main.onclick = () => card.classList.toggle('expanded');
   card.appendChild(main);
-
-  // Detail panel
-  const detail = document.createElement('div');
-  detail.className = 'item-detail';
-  detail.appendChild(makeTagEditor(tab));
-  detail.appendChild(makeGoCodeEditor(tab));
-  detail.appendChild(makeSavedMeta(tab));
-  detail.appendChild(makeSavedActions(tab));
-  card.appendChild(detail);
-
   return card;
 }
 
-function makeTagEditor(tab) {
-  const row = document.createElement('div');
-  row.className = 'detail-row';
-
-  const label = document.createElement('span');
-  label.className = 'detail-label';
-  label.textContent = 'Tags';
-  row.appendChild(label);
-
-  const val = document.createElement('div');
-  val.className = 'detail-value';
-
-  const area = document.createElement('div');
-  area.className = 'tag-input-area';
+function makeInlineTags(tab) {
+  const wrap = document.createElement('div');
+  wrap.className = 'saved-tags';
 
   const input = document.createElement('input');
   input.type = 'text';
-  input.className = 'tag-inline-input';
+  input.className = 'saved-tag-input';
+  input.placeholder = '+ tag';
   input.maxLength = 30;
-  area.appendChild(input);
 
-  const renderInlineTags = () => {
-    area.querySelectorAll('.tag-removable').forEach((el) => el.remove());
+  const renderPills = () => {
+    wrap.querySelectorAll('.saved-tag-pill').forEach((el) => el.remove());
     (tab.tags || []).forEach((tag) => {
-      const chip = document.createElement('span');
-      chip.className = 'tag-removable';
-      chip.innerHTML = `${escapeHtml(tag)} <button class="tag-remove-btn" title="Remove tag">×</button>`;
-      chip.querySelector('.tag-remove-btn').onclick = async (e) => {
+      const pill = document.createElement('span');
+      pill.className = 'saved-tag-pill';
+      pill.textContent = tag;
+      pill.title = 'Click to remove';
+      pill.onclick = async (e) => {
         e.stopPropagation();
         tab.tags = tab.tags.filter((t) => t !== tag);
         await send({ action: 'updateSavedTab', id: tab.id, patch: { tags: tab.tags } });
-        renderInlineTags();
+        renderPills();
         renderTagFilters();
         renderCounts();
       };
-      area.insertBefore(chip, input);
+      wrap.appendChild(pill);
     });
-    input.placeholder = (tab.tags || []).length ? '' : 'Add tags…';
   };
-  renderInlineTags();
 
-  area.onclick = () => input.focus();
+  wrap.appendChild(input);
+  wrap.onclick = () => input.focus();
+  renderPills();
 
   const doAdd = async () => {
-    const newTag = input.value.trim().toLowerCase();
-    if (!newTag || (tab.tags || []).includes(newTag)) { input.value = ''; return; }
-    tab.tags = [...(tab.tags || []), newTag];
+    const val = input.value.trim().toLowerCase();
+    if (!val || (tab.tags || []).includes(val)) { input.value = ''; return; }
+    tab.tags = [...(tab.tags || []), val];
     await send({ action: 'updateSavedTab', id: tab.id, patch: { tags: tab.tags } });
     input.value = '';
-    renderInlineTags();
+    renderPills();
     renderTagFilters();
   };
 
@@ -296,148 +313,15 @@ function makeTagEditor(tab) {
     if (e.key === 'Tab' || e.key === 'Enter') {
       e.preventDefault();
       doAdd();
-    } else if (e.key === 'Backspace' && e.target.value === '') {
-      if ((tab.tags || []).length) {
-        tab.tags = tab.tags.slice(0, -1);
-        send({ action: 'updateSavedTab', id: tab.id, patch: { tags: tab.tags } });
-        renderInlineTags();
-        renderTagFilters();
-      }
+    } else if (e.key === 'Backspace' && input.value === '' && (tab.tags || []).length) {
+      tab.tags = tab.tags.slice(0, -1);
+      send({ action: 'updateSavedTab', id: tab.id, patch: { tags: tab.tags } });
+      renderPills();
+      renderTagFilters();
     }
   });
 
-  val.appendChild(area);
-  row.appendChild(val);
-  return row;
-}
-
-function makeGoCodeEditor(tab) {
-  const row = document.createElement('div');
-  row.className = 'detail-row';
-
-  const label = document.createElement('span');
-  label.className = 'detail-label';
-  label.textContent = 'Go code';
-  row.appendChild(label);
-
-  const val = document.createElement('div');
-  val.className = 'detail-value';
-
-  const inputRow = document.createElement('div');
-  inputRow.style.display = 'flex';
-  inputRow.style.gap = '6px';
-  inputRow.style.alignItems = 'center';
-
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'inline-input';
-  input.value = tab.goCode || '';
-  input.placeholder = 'shortcode';
-  input.style.width = '120px';
-  input.style.fontFamily = 'var(--mono)';
-  input.style.fontSize = '12px';
-  input.maxLength = 20;
-  input.pattern = '[a-z0-9\\-]+';
-
-  const saveBtn = document.createElement('button');
-  saveBtn.className = 'btn btn-secondary btn-sm';
-  saveBtn.textContent = 'Save';
-
-  const clearBtn = document.createElement('button');
-  clearBtn.className = 'btn btn-ghost btn-sm';
-  clearBtn.textContent = 'Clear';
-
-  const errMsg = document.createElement('div');
-  errMsg.className = 'error-msg';
-  errMsg.style.display = 'none';
-
-  const doSave = async () => {
-    const code = input.value.trim().toLowerCase();
-    errMsg.style.display = 'none';
-    input.classList.remove('error');
-
-    if (code && !/^[a-z0-9-]+$/.test(code)) {
-      errMsg.textContent = 'Only lowercase letters, numbers, hyphens.';
-      errMsg.style.display = 'block';
-      input.classList.add('error');
-      return;
-    }
-
-    const duplicate = state.savedTabs.find((t) => t.id !== tab.id && t.goCode === code && code !== '');
-    if (duplicate) {
-      errMsg.textContent = `Code "${code}" is already used by "${duplicate.title}".`;
-      errMsg.style.display = 'block';
-      input.classList.add('error');
-      return;
-    }
-
-    tab.goCode = code || null;
-    await send({ action: 'updateSavedTab', id: tab.id, patch: { goCode: tab.goCode } });
-    renderSaved();
-  };
-
-  clearBtn.onclick = async () => {
-    input.value = '';
-    tab.goCode = null;
-    await send({ action: 'updateSavedTab', id: tab.id, patch: { goCode: null } });
-    renderSaved();
-  };
-
-  saveBtn.onclick = doSave;
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSave(); });
-
-  inputRow.appendChild(input);
-  inputRow.appendChild(saveBtn);
-  if (tab.goCode) inputRow.appendChild(clearBtn);
-
-  val.appendChild(inputRow);
-  val.appendChild(errMsg);
-  row.appendChild(val);
-  return row;
-}
-
-function makeSavedMeta(tab) {
-  const row = document.createElement('div');
-  row.className = 'detail-row';
-
-  const label = document.createElement('span');
-  label.className = 'detail-label';
-  label.textContent = 'Saved';
-
-  const val = document.createElement('div');
-  val.className = 'detail-value';
-  val.style.color = 'var(--text-muted)';
-  val.style.fontSize = '12px';
-  val.style.paddingTop = '6px';
-  val.textContent = formatRelativeDate(tab.savedAt);
-
-  row.appendChild(label);
-  row.appendChild(val);
-  return row;
-}
-
-function makeSavedActions(tab) {
-  const actions = document.createElement('div');
-  actions.className = 'detail-actions';
-
-  const openBtn = document.createElement('button');
-  openBtn.className = 'btn btn-primary btn-sm';
-  openBtn.textContent = 'Open tab';
-  openBtn.onclick = () => send({ action: 'restoreSavedTab', id: tab.id });
-
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'btn btn-danger btn-sm';
-  deleteBtn.textContent = 'Delete';
-  deleteBtn.onclick = async () => {
-    await send({ action: 'deleteSavedTab', id: tab.id });
-    state.savedTabs = state.savedTabs.filter((t) => t.id !== tab.id);
-    state.activeTags = new Set([...state.activeTags].filter((tag) => getAllTags().includes(tag)));
-    render();
-  };
-
-  actions.appendChild(openBtn);
-  actions.appendChild(deleteBtn);
-  return actions;
+  return wrap;
 }
 
 // ─── Backup section ───────────────────────────────────────────────────────────
@@ -470,6 +354,11 @@ function makeSnapshotCard(snapshot) {
   count.className = 'snapshot-count';
   count.textContent = `${snapshot.tabs.length} tab${snapshot.tabs.length !== 1 ? 's' : ''}`;
 
+  const groupMode = document.createElement('span');
+  groupMode.className = 'snapshot-badge-groups';
+  groupMode.textContent = 'groups ignored';
+  groupMode.style.display = snapshot.ignoresGroups ? '' : 'none';
+
   const spacer = document.createElement('span');
   spacer.className = 'snapshot-spacer';
 
@@ -498,6 +387,7 @@ function makeSnapshotCard(snapshot) {
 
   header.appendChild(time);
   header.appendChild(count);
+  header.appendChild(groupMode);
   header.appendChild(spacer);
   header.appendChild(restoreBtn);
   header.appendChild(deleteBtn);
@@ -552,8 +442,12 @@ function makeSnapshotCard(snapshot) {
       url.textContent = t.url;
 
       const openBtn = document.createElement('button');
-      openBtn.className = 'btn btn-ghost btn-sm';
-      openBtn.textContent = 'Open';
+      openBtn.className = 'btn btn-ghost btn-icon';
+      openBtn.title = 'Open tab';
+      const openIcon = document.createElement('span');
+      openIcon.className = 'material-symbols-outlined';
+      openIcon.textContent = 'open_in_new';
+      openBtn.appendChild(openIcon);
       openBtn.onclick = () => send({ action: 'restoreBackupTab', url: t.url });
 
       row.appendChild(title);
@@ -694,6 +588,239 @@ function makeArchiveCard(entry, purgeDays) {
   return card;
 }
 
+// ─── Open tabs ────────────────────────────────────────────────────────────────
+const otState = {
+  tabs: [],
+  sortCol: 'index',
+  sortDir: 'asc',
+  filter: 'all',
+  selected: new Set(),
+  loaded: false,
+};
+
+function otDomain(url) {
+  try { return new URL(url).hostname; } catch { return ''; }
+}
+
+async function loadOpenTabs() {
+  const all = await chrome.tabs.query({});
+  const urlCounts = new Map();
+  for (const t of all) {
+    if (!t.url || t.url.startsWith('chrome://') || t.url.startsWith('chrome-extension://')) continue;
+    const key = t.url.replace(/\/$/, '');
+    urlCounts.set(key, (urlCounts.get(key) || 0) + 1);
+  }
+
+  otState.tabs = all
+    .filter(t => t.url && !t.url.startsWith('chrome://') && !t.url.startsWith('chrome-extension://'))
+    .map(t => ({
+      tabId: t.id,
+      index: t.index,
+      title: t.title || t.url,
+      url: t.url,
+      favIconUrl: t.favIconUrl || null,
+      domain: otDomain(t.url),
+      lastAccessed: t.lastAccessed || 0,
+      pinned: t.pinned,
+      active: t.active,
+      isDupe: urlCounts.get(t.url.replace(/\/$/, '')) > 1,
+    }));
+
+  // Purge stale selections
+  const tabIdSet = new Set(otState.tabs.map(t => t.tabId));
+  for (const id of otState.selected) { if (!tabIdSet.has(id)) otState.selected.delete(id); }
+
+  otState.loaded = true;
+  renderOpenTabs();
+}
+
+function otGetVisible() {
+  const query = (document.getElementById('otSearch')?.value || '').trim().toLowerCase();
+  let tabs = otState.tabs.filter(t => {
+    if (otState.filter === 'dupes') return t.isDupe;
+    return true;
+  });
+  if (query) {
+    tabs = tabs.filter(t =>
+      t.title.toLowerCase().includes(query) ||
+      t.url.toLowerCase().includes(query) ||
+      t.domain.toLowerCase().includes(query)
+    );
+  }
+  const pinned = tabs.filter(t => t.pinned);
+  const unpinned = tabs.filter(t => !t.pinned);
+  const { sortCol, sortDir } = otState;
+  unpinned.sort((a, b) => {
+    let av = a[sortCol], bv = b[sortCol];
+    if (sortCol === 'lastAccessed' || sortCol === 'index') { av = av || 0; bv = bv || 0; }
+    else { av = (av || '').toLowerCase(); bv = (bv || '').toLowerCase(); }
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+  return [...pinned, ...unpinned];
+}
+
+function renderOpenTabs() {
+  document.getElementById('openCount').textContent = otState.tabs.length;
+  document.getElementById('otCountAll').textContent = otState.tabs.length;
+  document.getElementById('otCountDupes').textContent = otState.tabs.filter(t => t.isDupe).length;
+
+  document.querySelectorAll('.ot-sortable').forEach(th => {
+    th.querySelector('.ot-sort-icon').textContent = th.dataset.col === otState.sortCol
+      ? (otState.sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+  });
+
+  const visible = otGetVisible();
+  const body = document.getElementById('otBody');
+
+  if (!otState.loaded) {
+    body.innerHTML = '<tr><td colspan="6" class="ot-empty">Loading…</td></tr>';
+    otUpdateBulkBar();
+    return;
+  }
+
+  if (visible.length === 0) {
+    body.innerHTML = '<tr><td colspan="6" class="ot-empty">No tabs match.</td></tr>';
+    otUpdateBulkBar();
+    return;
+  }
+
+  body.innerHTML = '';
+  for (const tab of visible) {
+    body.appendChild(otMakeRow(tab));
+  }
+
+  otUpdateBulkBar();
+}
+
+function otMakeRow(tab) {
+  const tr = document.createElement('tr');
+  if (tab.pinned) tr.classList.add('ot-pinned');
+  if (otState.selected.has(tab.tabId)) tr.classList.add('ot-selected');
+
+  // Checkbox / pin icon
+  const tdChk = document.createElement('td');
+  tdChk.className = 'ot-chk-cell';
+  if (tab.pinned) {
+    const pin = document.createElement('span');
+    pin.className = 'material-symbols-outlined ot-pin-icon';
+    pin.textContent = 'push_pin';
+    tdChk.appendChild(pin);
+  } else {
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.className = 'ot-row-chk';
+    chk.checked = otState.selected.has(tab.tabId);
+    chk.onchange = () => {
+      if (chk.checked) otState.selected.add(tab.tabId); else otState.selected.delete(tab.tabId);
+      tr.classList.toggle('ot-selected', chk.checked);
+      otUpdateBulkBar();
+    };
+    tdChk.appendChild(chk);
+  }
+  tr.appendChild(tdChk);
+
+  // Position
+  const tdPos = document.createElement('td');
+  tdPos.className = 'ot-pos';
+  tdPos.textContent = tab.index + 1;
+  tr.appendChild(tdPos);
+
+  // Favicon
+  const tdFav = document.createElement('td');
+  tdFav.appendChild(makeFavicon(tab.favIconUrl, tab.url, tab.title));
+  tr.appendChild(tdFav);
+
+  // Title + URL
+  const tdTitle = document.createElement('td');
+  const titleRow = document.createElement('div');
+  titleRow.className = 'ot-title-row';
+  const titleEl = document.createElement('span');
+  titleEl.className = 'ot-title';
+  titleEl.textContent = tab.title;
+  titleRow.appendChild(titleEl);
+  if (tab.isDupe) {
+    const b = document.createElement('span');
+    b.className = 'ot-badge ot-badge-dupe';
+    b.textContent = 'dupe';
+    titleRow.appendChild(b);
+  }
+  const urlEl = document.createElement('div');
+  urlEl.className = 'ot-url';
+  urlEl.textContent = tab.url;
+  tdTitle.appendChild(titleRow);
+  tdTitle.appendChild(urlEl);
+  tr.appendChild(tdTitle);
+
+  // Domain
+  const tdDomain = document.createElement('td');
+  tdDomain.className = 'ot-domain';
+  tdDomain.textContent = tab.domain;
+  tr.appendChild(tdDomain);
+
+  // Last accessed
+  const tdAccessed = document.createElement('td');
+  tdAccessed.className = 'ot-accessed';
+  tdAccessed.textContent = tab.lastAccessed ? formatDaysAgo(tab.lastAccessed) : '—';
+  tdAccessed.title = tab.lastAccessed ? formatDate(tab.lastAccessed) : '';
+  tr.appendChild(tdAccessed);
+
+  // Actions
+  const tdActions = document.createElement('td');
+  tdActions.className = 'ot-actions';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'btn btn-ghost btn-sm btn-icon';
+  saveBtn.title = 'Save & close';
+  saveBtn.disabled = tab.pinned;
+  const saveIcon = document.createElement('span');
+  saveIcon.className = 'material-symbols-outlined';
+  saveIcon.textContent = 'bookmark_add';
+  saveBtn.appendChild(saveIcon);
+  saveBtn.onclick = async (e) => {
+    e.stopPropagation();
+    await send({ action: 'saveTabs', tabIds: [tab.tabId] });
+    const data = await chrome.storage.local.get('savedTabs');
+    state.savedTabs = data.savedTabs || [];
+    otState.tabs = otState.tabs.filter(t => t.tabId !== tab.tabId);
+    otState.selected.delete(tab.tabId);
+    renderCounts();
+    renderSaved();
+    renderOpenTabs();
+  };
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'btn btn-ghost btn-sm btn-icon';
+  closeBtn.title = 'Close tab';
+  closeBtn.disabled = tab.pinned;
+  const closeIcon = document.createElement('span');
+  closeIcon.className = 'material-symbols-outlined';
+  closeIcon.textContent = 'close';
+  closeBtn.appendChild(closeIcon);
+  closeBtn.onclick = async (e) => {
+    e.stopPropagation();
+    await send({ action: 'closeTabs', tabIds: [tab.tabId] });
+    otState.tabs = otState.tabs.filter(t => t.tabId !== tab.tabId);
+    otState.selected.delete(tab.tabId);
+    renderOpenTabs();
+  };
+
+  tdActions.appendChild(saveBtn);
+  tdActions.appendChild(closeBtn);
+  tr.appendChild(tdActions);
+
+  return tr;
+}
+
+function otUpdateBulkBar() {
+  const bulk = document.getElementById('otBulk');
+  const count = otState.selected.size;
+  bulk.style.display = count > 0 ? 'flex' : 'none';
+  document.getElementById('otSelCount').textContent = `${count} selected`;
+}
+
+
 // ─── Tab navigation ───────────────────────────────────────────────────────────
 document.querySelectorAll('.tab-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -701,6 +828,7 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
     document.querySelectorAll('.section').forEach((s) => s.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById(`section-${btn.dataset.tab}`).classList.add('active');
+    if (btn.dataset.tab === 'open' && !otState.loaded) loadOpenTabs();
   });
 });
 
@@ -749,6 +877,61 @@ document.getElementById('runBackupNow').addEventListener('click', async () => {
   renderCounts();
   btn.disabled = false;
   btn.textContent = 'Backup now';
+});
+
+// ─── Open tabs event bindings ─────────────────────────────────────────────────
+document.getElementById('refreshOpenTabs').addEventListener('click', () => loadOpenTabs());
+
+document.getElementById('otSearch').addEventListener('input', () => renderOpenTabs());
+
+document.getElementById('otFilters').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-filter]');
+  if (!btn) return;
+  otState.filter = btn.dataset.filter;
+  document.querySelectorAll('[data-filter]').forEach(b => b.classList.toggle('active', b === btn));
+  otState.selected.clear();
+  renderOpenTabs();
+});
+
+
+document.querySelectorAll('.ot-sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    if (otState.sortCol === th.dataset.col) {
+      otState.sortDir = otState.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      otState.sortCol = th.dataset.col;
+      otState.sortDir = otState.sortCol === 'lastAccessed' ? 'asc' : 'asc';
+    }
+    renderOpenTabs();
+  });
+});
+
+
+document.getElementById('otBulkSave').addEventListener('click', async () => {
+  const ids = [...otState.selected];
+  if (!ids.length) return;
+  await send({ action: 'saveTabs', tabIds: ids });
+  const data = await chrome.storage.local.get('savedTabs');
+  state.savedTabs = data.savedTabs || [];
+  otState.tabs = otState.tabs.filter(t => !otState.selected.has(t.tabId));
+  otState.selected.clear();
+  renderCounts();
+  renderSaved();
+  renderOpenTabs();
+});
+
+document.getElementById('otBulkClose').addEventListener('click', async () => {
+  const ids = [...otState.selected];
+  if (!ids.length) return;
+  await send({ action: 'closeTabs', tabIds: ids });
+  otState.tabs = otState.tabs.filter(t => !otState.selected.has(t.tabId));
+  otState.selected.clear();
+  renderOpenTabs();
+});
+
+document.getElementById('otBulkDeselect').addEventListener('click', () => {
+  otState.selected.clear();
+  renderOpenTabs();
 });
 
 // ─── Storage change listener (live updates) ───────────────────────────────────

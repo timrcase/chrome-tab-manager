@@ -73,11 +73,9 @@ async function save() {
   saveBtn.textContent = 'Saving…';
 
   try {
-    const goCode = document.getElementById('spGoInput').value.trim().toLowerCase() || null;
     const res = await chrome.runtime.sendMessage({
       action: 'saveCurrentTab',
       tags: [...pendingTags],
-      goCode,
     });
 
     if (res?.ok) {
@@ -131,7 +129,6 @@ async function init() {
       if (tagInput.value.trim()) {
         e.preventDefault();
         addTag();
-        // cursor stays in tag input; empty Tab moves to go-code naturally
       }
     } else if (e.key === 'Enter') {
       e.preventDefault();

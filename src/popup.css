@@ -84,7 +84,7 @@ body {
 
 /* ─── Form body ─────────────────────────────────────────────────────────────── */
 .form-body {
-  align-items: start;
+  align-items: center;
   column-gap: 10px;
   display: grid;
   grid-template-columns: auto 1fr;
@@ -97,7 +97,6 @@ body {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.5px;
-  padding-top: 8px;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -160,25 +159,6 @@ body {
 }
 
 .sp-tag-remove:hover { color: var(--danger); }
-
-/* ─── Go code input ─────────────────────────────────────────────────────────── */
-.go-input {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  caret-color: var(--accent);
-  color: var(--text);
-  font-family: var(--mono);
-  font-size: 12px;
-  min-height: 36px;
-  outline: none;
-  padding: 9px 8px;
-  transition: border-color 0.15s;
-  width: 100%;
-}
-
-.go-input:focus { border-color: var(--accent); }
-.go-input::placeholder { color: var(--text-muted); }
 
 /* ─── Footer ────────────────────────────────────────────────────────────────── */
 .popup-footer {

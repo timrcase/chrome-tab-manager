@@ -10,14 +10,12 @@ const DEFAULT_SETTINGS = {
   backupEnabled: true,
   backupIntervalMinutes: 60,
   backupMaxSnapshots: 10,
+  backupIgnoreGroups: false,
   archiveEnabled: true,
   archivePurgeDays: 30,
   archiveStaleThresholdDays: 14,
-  cleanupStaleThresholdDays: 15,
 };
 
-const CLEANUP_STALE_THRESHOLD_STEP = 15;
-const CLEANUP_STALE_THRESHOLD_MAX = 360;
 
 // ─── Dev badge ───────────────────────────────────────────────────────────────
 if (!chrome.runtime.getManifest().update_url) {
@@ -30,18 +28,10 @@ chrome.runtime.onInstalled.addListener(async () => {
   await initSettings();
   await warmTabCache();
   await rescheduleAlarms();
-  chrome.omnibox.setDefaultSuggestion({
-    description: "Type a go code to navigate",
-  });
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: "openTabManager",
       title: "Open Tab Manager",
-      contexts: ["action"],
-    });
-    chrome.contextMenus.create({
-      id: "openCleanupPage",
-      title: "Cleanup Tabs",
       contexts: ["action"],
     });
   });
@@ -61,8 +51,6 @@ async function openOrFocusTab(url) {
 chrome.contextMenus.onClicked.addListener((info) => {
   if (info.menuItemId === "openTabManager")
     openOrFocusTab(chrome.runtime.getURL("manager.html"));
-  if (info.menuItemId === "openCleanupPage")
-    openOrFocusTab(chrome.runtime.getURL("cleanup.html"));
 });
 
 chrome.runtime.onStartup.addListener(async () => {
@@ -82,11 +70,9 @@ async function initSettings() {
       ...settings,
       archiveStaleThresholdDays:
         settings.archiveStaleThresholdDays ?? legacyStaleThreshold ?? DEFAULT_SETTINGS.archiveStaleThresholdDays,
-      cleanupStaleThresholdDays: cleanupThresholdSetting(
-        settings.cleanupStaleThresholdDays ?? legacyStaleThreshold,
-      ),
     };
     delete merged.staleTabThresholdDays;
+    delete merged.staleThresholdDays;
     await chrome.storage.local.set({ settings: merged });
   }
 }
@@ -145,54 +131,6 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   tabCache.delete(tabId);
 });
 
-// ─── Omnibox ─────────────────────────────────────────────────────────────────
-function escapeXml(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-chrome.omnibox.onInputChanged.addListener(async (text, suggest) => {
-  const query = text.trim().toLowerCase();
-  if (!query) {
-    suggest([]);
-    return;
-  }
-
-  const { savedTabs = [] } = await chrome.storage.local.get("savedTabs");
-  const matches = savedTabs.filter(
-    (t) => t.goCode && t.goCode.toLowerCase().startsWith(query),
-  );
-
-  suggest(
-    matches.map((t) => ({
-      content: t.goCode,
-      description: `<match>${escapeXml(t.goCode)}</match> — <dim>${escapeXml(t.title)}</dim>`,
-    })),
-  );
-});
-
-chrome.omnibox.onInputEntered.addListener(async (text, disposition) => {
-  const code = text.trim().toLowerCase();
-  const { savedTabs = [] } = await chrome.storage.local.get("savedTabs");
-  const match = savedTabs.find(
-    (t) => t.goCode && t.goCode.toLowerCase() === code,
-  );
-
-  if (!match) return;
-
-  const url = match.url;
-  if (disposition === "currentTab") {
-    chrome.tabs.update({ url });
-  } else if (disposition === "newForegroundTab") {
-    chrome.tabs.create({ url, active: true });
-  } else {
-    chrome.tabs.create({ url, active: false });
-  }
-});
-
 // ─── Alarms ──────────────────────────────────────────────────────────────────
 async function rescheduleAlarms() {
   await chrome.alarms.clearAll();
@@ -221,13 +159,13 @@ async function runBackup() {
 
   const maxSnapshots = settings.backupMaxSnapshots || 10;
 
-  const [allTabs, allGroups] = await Promise.all([
-    chrome.tabs.query({}),
-    chrome.tabGroups.query({}),
-  ]);
+  const ignoreGroups = settings.backupIgnoreGroups === true;
+  const allTabs = await chrome.tabs.query({});
+  const allGroups = ignoreGroups ? [] : await chrome.tabGroups.query({});
   const snapshot = {
     id: crypto.randomUUID(),
     capturedAt: Date.now(),
+    ignoresGroups: ignoreGroups,
     groups: allGroups.map((g) => ({
       id: g.id,
       title: g.title,
@@ -240,12 +178,15 @@ async function runBackup() {
           !t.url.startsWith("chrome://") &&
           !t.url.startsWith("chrome-extension://"),
       )
-      .map((t) => ({
-        url: t.url,
-        title: t.title || t.url,
-        favIconUrl: t.favIconUrl || null,
-        groupId: t.groupId,
-      })),
+      .map((t) => {
+        const entry = {
+          url: t.url,
+          title: t.title || t.url,
+          favIconUrl: t.favIconUrl || null,
+        };
+        if (!ignoreGroups) entry.groupId = t.groupId;
+        return entry;
+      }),
   };
 
   const { backupList = [] } = await chrome.storage.local.get("backupList");
@@ -327,8 +268,7 @@ function makeSavedTabEntry(tab) {
     title: tab.title || tab.url,
     favIconUrl: tab.favIconUrl || null,
     tags: [],
-    goCode: null,
-    savedAt: Date.now(),
+      savedAt: Date.now(),
   };
 }
 
@@ -346,15 +286,8 @@ function staleSetting(settings, key, legacyFallback) {
   );
 }
 
-function cleanupThresholdSetting(value) {
-  const parsed = parseInt(value, 10);
-  const raw = Number.isNaN(parsed) ? DEFAULT_SETTINGS.cleanupStaleThresholdDays : parsed;
-  if (raw <= 0) return 0;
-  const snapped = Math.round(raw / CLEANUP_STALE_THRESHOLD_STEP) * CLEANUP_STALE_THRESHOLD_STEP;
-  return Math.max(CLEANUP_STALE_THRESHOLD_STEP, Math.min(CLEANUP_STALE_THRESHOLD_MAX, snapped));
-}
 
-// ─── Message handler (from popup.js / options.js / cleanup.js) ───────────────
+// ─── Message handler (from popup.js / options.js) ────────────────────────────
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   handleMessage(msg)
     .then(sendResponse)
@@ -469,6 +402,7 @@ async function handleMessage(msg) {
       const s = msg.settings || {};
       const validated = {
         backupEnabled: Boolean(s.backupEnabled),
+        backupIgnoreGroups: Boolean(s.backupIgnoreGroups),
         backupIntervalMinutes: numberSetting(
           s.backupIntervalMinutes,
           DEFAULT_SETTINGS.backupIntervalMinutes,
@@ -489,9 +423,6 @@ async function handleMessage(msg) {
           s,
           "archiveStaleThresholdDays",
           DEFAULT_SETTINGS.archiveStaleThresholdDays,
-        ),
-        cleanupStaleThresholdDays: cleanupThresholdSetting(
-          s.cleanupStaleThresholdDays ?? s.staleTabThresholdDays,
         ),
       };
       await chrome.storage.local.set({ settings: validated });
@@ -515,7 +446,6 @@ async function handleMessage(msg) {
       const entry = {
         ...makeSavedTabEntry(tab),
         tags: msg.tags || [],
-        goCode: msg.goCode || null,
       };
       const { savedTabs = [] } = await chrome.storage.local.get("savedTabs");
       savedTabs.push(entry);
@@ -553,86 +483,6 @@ async function handleMessage(msg) {
       tabIds.forEach((id) => tabsClosedByExtension.add(id));
       await chrome.tabs.remove(tabIds);
       return { ok: true, saved: tabIds.length, closed: tabIds.length };
-    }
-
-    case "getCleanupData": {
-      const { settings = DEFAULT_SETTINGS } =
-        await chrome.storage.local.get("settings");
-      const normalizedSettings = {
-        ...DEFAULT_SETTINGS,
-        ...settings,
-        archiveStaleThresholdDays:
-          settings.archiveStaleThresholdDays ??
-          settings.staleTabThresholdDays ??
-          DEFAULT_SETTINGS.archiveStaleThresholdDays,
-        cleanupStaleThresholdDays:
-          cleanupThresholdSetting(
-            settings.cleanupStaleThresholdDays ?? settings.staleTabThresholdDays,
-          ),
-      };
-      const allTabs = await chrome.tabs.query({});
-
-      const usableTabs = allTabs.filter(
-        (t) =>
-          t.url &&
-          !t.url.startsWith("chrome://") &&
-          !t.url.startsWith("chrome-extension://"),
-      );
-
-      // Duplicates: group by normalized URL
-      const urlGroups = new Map();
-      for (const tab of usableTabs) {
-        const key = tab.url.replace(/\/$/, "");
-        if (!urlGroups.has(key)) urlGroups.set(key, []);
-        urlGroups.get(key).push(tab);
-      }
-      const duplicateGroups = [];
-      for (const [url, tabs] of urlGroups) {
-        if (tabs.length < 2) continue;
-        duplicateGroups.push({
-          url,
-          tabs: tabs.map((t) => ({
-            tabId: t.id,
-            title: t.title || t.url,
-            url: t.url,
-            favIconUrl: t.favIconUrl || null,
-            pinned: t.pinned,
-            active: t.active,
-            openedAt: t.lastAccessed ?? null,
-          })),
-        });
-      }
-
-      // Stale tabs — based on lastAccessed (native Chrome property)
-      const thresholdDays =
-        normalizedSettings.cleanupStaleThresholdDays;
-      let staleTabs = [];
-      if (thresholdDays > 0) {
-        const cutoff = Date.now() - thresholdDays * 86400000;
-        staleTabs = usableTabs
-          .filter(
-            (t) => t.lastAccessed !== undefined && t.lastAccessed < cutoff,
-          )
-          .map((t) => ({
-            tabId: t.id,
-            title: t.title || t.url,
-            url: t.url,
-            favIconUrl: t.favIconUrl || null,
-            pinned: t.pinned,
-            active: t.active,
-            openedAt: t.lastAccessed,
-          }))
-          .sort((a, b) => a.openedAt - b.openedAt);
-      }
-
-      return {
-        ok: true,
-        duplicateGroups,
-        staleTabs,
-        staleThresholdDays: thresholdDays,
-        settings: normalizedSettings,
-        totalOpen: usableTabs.length,
-      };
     }
 
     case "closeTabs": {

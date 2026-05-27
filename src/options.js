@@ -2,10 +2,10 @@ const DEFAULT_SETTINGS = {
   backupEnabled: true,
   backupIntervalMinutes: 60,
   backupMaxSnapshots: 10,
+  backupIgnoreGroups: false,
   archiveEnabled: true,
   archivePurgeDays: 30,
   archiveStaleThresholdDays: 14,
-  cleanupStaleThresholdDays: 15,
 };
 
 const NUMBER_FIELDS = {
@@ -15,7 +15,7 @@ const NUMBER_FIELDS = {
   archiveStaleThresholdDays: { min: 0, max: 365 },
 };
 
-const TOGGLE_FIELDS = ['backupEnabled', 'archiveEnabled'];
+const TOGGLE_FIELDS = ['backupEnabled', 'backupIgnoreGroups', 'archiveEnabled'];
 
 // ─── Load settings into form ──────────────────────────────────────────────────
 async function loadSettings() {
@@ -25,13 +25,12 @@ async function loadSettings() {
     ...settings,
     archiveStaleThresholdDays:
       settings.archiveStaleThresholdDays ?? settings.staleTabThresholdDays ?? DEFAULT_SETTINGS.archiveStaleThresholdDays,
-    cleanupStaleThresholdDays:
-      settings.cleanupStaleThresholdDays ?? settings.staleTabThresholdDays ?? DEFAULT_SETTINGS.cleanupStaleThresholdDays,
   };
 
   document.getElementById('backupEnabled').checked = s.backupEnabled !== false;
   document.getElementById('backupIntervalMinutes').value = s.backupIntervalMinutes;
   document.getElementById('backupMaxSnapshots').value = s.backupMaxSnapshots;
+  document.getElementById('backupIgnoreGroups').checked = s.backupIgnoreGroups === true;
   document.getElementById('archiveEnabled').checked = s.archiveEnabled !== false;
   document.getElementById('archivePurgeDays').value = s.archivePurgeDays;
   document.getElementById('archiveStaleThresholdDays').value = s.archiveStaleThresholdDays;
@@ -46,8 +45,10 @@ function updateBackupRowVisibility() {
   const intervalEnabled = backupEnabled || archiveEnabled;
   document.getElementById('backupIntervalRow').style.opacity = intervalEnabled ? '1' : '0.4';
   document.getElementById('backupMaxRow').style.opacity = backupEnabled ? '1' : '0.4';
+  document.getElementById('backupIgnoreGroupsRow').style.opacity = backupEnabled ? '1' : '0.4';
   document.getElementById('backupIntervalMinutes').disabled = !intervalEnabled;
   document.getElementById('backupMaxSnapshots').disabled = !backupEnabled;
+  document.getElementById('backupIgnoreGroups').disabled = !backupEnabled;
 }
 
 function updateArchiveRowVisibility() {

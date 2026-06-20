@@ -1,8 +1,8 @@
 const DEFAULT_SETTINGS = {
   defaultManagerPage: 'open',
   iconAction: 'popup',
+  runIntervalMinutes: 60,
   backupEnabled: true,
-  backupIntervalMinutes: 60,
   backupMaxSnapshots: 10,
   backupIgnoreGroups: false,
   archiveEnabled: true,
@@ -11,7 +11,7 @@ const DEFAULT_SETTINGS = {
 };
 
 const NUMBER_FIELDS = {
-  backupIntervalMinutes: { min: 1, max: 10080 },
+  runIntervalMinutes: { min: 1, max: 10080 },
   backupMaxSnapshots: { min: 1, max: 100 },
   archivePurgeDays: { min: 0, max: 3650 },
   archiveStaleThresholdDays: { min: 0, max: 365 },
@@ -31,8 +31,8 @@ async function loadSettings() {
 
   document.getElementById('defaultManagerPage').value = s.defaultManagerPage || 'open';
   document.getElementById('iconAction').value = s.iconAction || 'popup';
+  document.getElementById('runIntervalMinutes').value = s.runIntervalMinutes;
   document.getElementById('backupEnabled').checked = s.backupEnabled !== false;
-  document.getElementById('backupIntervalMinutes').value = s.backupIntervalMinutes;
   document.getElementById('backupMaxSnapshots').value = s.backupMaxSnapshots;
   document.getElementById('backupIgnoreGroups').checked = s.backupIgnoreGroups === true;
   document.getElementById('archiveEnabled').checked = s.archiveEnabled !== false;
@@ -45,12 +45,8 @@ async function loadSettings() {
 
 function updateBackupRowVisibility() {
   const backupEnabled = document.getElementById('backupEnabled').checked;
-  const archiveEnabled = document.getElementById('archiveEnabled').checked;
-  const intervalEnabled = backupEnabled || archiveEnabled;
-  document.getElementById('backupIntervalRow').style.opacity = intervalEnabled ? '1' : '0.4';
   document.getElementById('backupMaxRow').style.opacity = backupEnabled ? '1' : '0.4';
   document.getElementById('backupIgnoreGroupsRow').style.opacity = backupEnabled ? '1' : '0.4';
-  document.getElementById('backupIntervalMinutes').disabled = !intervalEnabled;
   document.getElementById('backupMaxSnapshots').disabled = !backupEnabled;
   document.getElementById('backupIgnoreGroups').disabled = !backupEnabled;
 }
@@ -148,10 +144,7 @@ document.getElementById('iconAction').addEventListener('change', (e) => {
 });
 
 document.getElementById('backupEnabled').addEventListener('change', updateBackupRowVisibility);
-document.getElementById('archiveEnabled').addEventListener('change', () => {
-  updateBackupRowVisibility();
-  updateArchiveRowVisibility();
-});
+document.getElementById('archiveEnabled').addEventListener('change', updateArchiveRowVisibility);
 
 // ─── Storage management ───────────────────────────────────────────────────────
 document.getElementById('exportData').addEventListener('click', async () => {

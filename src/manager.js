@@ -609,17 +609,22 @@ function otDomain(url) {
   try { return new URL(url).hostname; } catch { return ''; }
 }
 
+// Mirrors isSaveableTab in background.js (separate script, can't be shared directly).
+function isManageableTab(t) {
+  return t.url && !t.url.startsWith('chrome://') && !t.url.startsWith('chrome-extension://');
+}
+
 async function loadOpenTabs() {
   const all = await chrome.tabs.query({});
+  const manageable = all.filter(isManageableTab);
+
   const urlCounts = new Map();
-  for (const t of all) {
-    if (!t.url || t.url.startsWith('chrome://') || t.url.startsWith('chrome-extension://')) continue;
+  for (const t of manageable) {
     const key = t.url.replace(/\/$/, '');
     urlCounts.set(key, (urlCounts.get(key) || 0) + 1);
   }
 
-  otState.tabs = all
-    .filter(t => t.url && !t.url.startsWith('chrome://') && !t.url.startsWith('chrome-extension://'))
+  otState.tabs = manageable
     .map(t => ({
       tabId: t.id,
       windowId: t.windowId,

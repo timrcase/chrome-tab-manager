@@ -49,6 +49,20 @@
           </div>
         </div>
       </div>
+
+      <div class="form-row" id="runIntervalRow">
+        <label class="form-label" for="runIntervalMinutes">
+          Run interval
+          <span class="form-sublabel">How often backups and stale archive sweeps run. Minimum 1 minute.</span>
+        </label>
+        <div class="form-control">
+          <div class="num-input-wrap">
+            <input type="number" id="runIntervalMinutes" class="form-input" min="1" max="10080" step="1" />
+            <span class="input-unit">min</span>
+          </div>
+          <div class="form-error" data-for="runIntervalMinutes"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Backup settings -->
@@ -63,20 +77,6 @@
         <div class="toggle-wrap">
           <input type="checkbox" id="backupEnabled" />
           <label class="toggle-track" for="backupEnabled"></label>
-        </div>
-      </div>
-
-      <div class="form-row" id="backupIntervalRow">
-        <label class="form-label" for="backupIntervalMinutes">
-          Run interval
-          <span class="form-sublabel">Backups and stale archive sweeps run on this cadence. Minimum 1 minute.</span>
-        </label>
-        <div class="form-control">
-          <div class="num-input-wrap">
-            <input type="number" id="backupIntervalMinutes" class="form-input" min="1" max="10080" step="1" />
-            <span class="input-unit">min</span>
-          </div>
-          <div class="form-error" data-for="backupIntervalMinutes"></div>
         </div>
       </div>
 

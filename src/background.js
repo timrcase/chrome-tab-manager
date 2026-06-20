@@ -2,15 +2,14 @@
 const DEFAULT_SETTINGS = {
   defaultManagerPage: "open",
   iconAction: "popup",
+  runIntervalMinutes: 60,
   backupEnabled: true,
-  backupIntervalMinutes: 60,
   backupMaxSnapshots: 10,
   backupIgnoreGroups: false,
   archiveEnabled: true,
   archivePurgeDays: 30,
   archiveStaleThresholdDays: 14,
 };
-
 
 // ─── Dev badge ───────────────────────────────────────────────────────────────
 if (!chrome.runtime.getManifest().update_url) {
@@ -84,7 +83,9 @@ async function initSettings() {
       ...DEFAULT_SETTINGS,
       ...settings,
       archiveStaleThresholdDays:
-        settings.archiveStaleThresholdDays ?? legacyStaleThreshold ?? DEFAULT_SETTINGS.archiveStaleThresholdDays,
+        settings.archiveStaleThresholdDays ??
+        legacyStaleThreshold ??
+        DEFAULT_SETTINGS.archiveStaleThresholdDays,
     };
     delete merged.staleTabThresholdDays;
     delete merged.staleThresholdDays;
@@ -100,7 +101,7 @@ async function rescheduleAlarms() {
     await chrome.storage.local.get("settings");
 
   if (settings.backupEnabled !== false || settings.archiveEnabled !== false) {
-    const period = Math.max(1, settings.backupIntervalMinutes || 60);
+    const period = Math.max(1, settings.runIntervalMinutes || 60);
     chrome.alarms.create("backup", { periodInMinutes: period });
   }
 }
@@ -133,12 +134,7 @@ async function runBackup() {
       color: g.color,
     })),
     tabs: allTabs
-      .filter(
-        (t) =>
-          t.url &&
-          !t.url.startsWith("chrome://") &&
-          !t.url.startsWith("chrome-extension://"),
-      )
+      .filter(isSaveableTab)
       .map((t) => {
         const entry = {
           url: t.url,
@@ -220,6 +216,15 @@ function isSaveableTab(tab) {
   );
 }
 
+// Only ever open http(s) URLs. Stored data can be tampered with via import,
+// so every restore path is gated through this before chrome.tabs/windows.create.
+function isRestorableUrl(url) {
+  return (
+    typeof url === "string" &&
+    (url.startsWith("https://") || url.startsWith("http://"))
+  );
+}
+
 function makeSavedTabEntry(tab) {
   return {
     id: crypto.randomUUID(),
@@ -227,7 +232,7 @@ function makeSavedTabEntry(tab) {
     title: tab.title || tab.url,
     favIconUrl: tab.favIconUrl || null,
     tags: [],
-      savedAt: Date.now(),
+    savedAt: Date.now(),
   };
 }
 
@@ -244,7 +249,6 @@ function staleSetting(settings, key, legacyFallback) {
     0,
   );
 }
-
 
 // ─── Message handler (from popup.js / options.js) ────────────────────────────
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -275,22 +279,29 @@ async function handleMessage(msg) {
     case "restoreSavedTab": {
       const { savedTabs = [] } = await chrome.storage.local.get("savedTabs");
       const tab = savedTabs.find((t) => t.id === msg.id);
-      if (tab) chrome.tabs.create({ url: tab.url, active: true });
+      if (!tab || !isRestorableUrl(tab.url)) {
+        return { ok: false, error: "Invalid URL" };
+      }
+      chrome.tabs.create({ url: tab.url, active: true });
       return { ok: true };
     }
 
     case "restoreSnapshot": {
       const { backupList = [] } = await chrome.storage.local.get("backupList");
       const snapshot = backupList.find((s) => s.id === msg.id);
-      if (!snapshot || snapshot.tabs.length === 0) return { ok: false };
+      if (!snapshot) return { ok: false };
 
-      const urls = snapshot.tabs.map((t) => t.url);
+      // Filter before creating the window so URL list and group-index mapping stay aligned.
+      const restorable = snapshot.tabs.filter((t) => isRestorableUrl(t.url));
+      if (restorable.length === 0) return { ok: false };
+
+      const urls = restorable.map((t) => t.url);
       const win = await chrome.windows.create({ url: urls, focused: true });
 
       if (snapshot.groups?.length && win.tabs?.length) {
         const groupMeta = new Map(snapshot.groups.map((g) => [g.id, g]));
         const groupTabs = new Map();
-        snapshot.tabs.forEach((t, i) => {
+        restorable.forEach((t, i) => {
           const gid = t.groupId ?? -1;
           if (gid !== -1) {
             if (!groupTabs.has(gid)) groupTabs.set(gid, []);
@@ -326,11 +337,10 @@ async function handleMessage(msg) {
     }
 
     case "restoreBackupTab": {
-      const url = msg.url;
-      if (!url || (!url.startsWith("https://") && !url.startsWith("http://"))) {
+      if (!isRestorableUrl(msg.url)) {
         return { ok: false, error: "Invalid URL" };
       }
-      chrome.tabs.create({ url, active: true });
+      chrome.tabs.create({ url: msg.url, active: true });
       return { ok: true };
     }
 
@@ -390,13 +400,13 @@ async function handleMessage(msg) {
         iconAction: ["popup", "page"].includes(s.iconAction)
           ? s.iconAction
           : DEFAULT_SETTINGS.iconAction,
-        backupEnabled: Boolean(s.backupEnabled),
-        backupIgnoreGroups: Boolean(s.backupIgnoreGroups),
-        backupIntervalMinutes: numberSetting(
-          s.backupIntervalMinutes,
-          DEFAULT_SETTINGS.backupIntervalMinutes,
+        runIntervalMinutes: numberSetting(
+          s.runIntervalMinutes,
+          DEFAULT_SETTINGS.runIntervalMinutes,
           1,
         ),
+        backupEnabled: Boolean(s.backupEnabled),
+        backupIgnoreGroups: Boolean(s.backupIgnoreGroups),
         backupMaxSnapshots: numberSetting(
           s.backupMaxSnapshots,
           DEFAULT_SETTINGS.backupMaxSnapshots,
@@ -463,7 +473,9 @@ async function handleMessage(msg) {
       const { savedTabs = [] } = await chrome.storage.local.get("savedTabs");
       const entries = saveable.map(makeSavedTabEntry);
       try {
-        await chrome.storage.local.set({ savedTabs: savedTabs.concat(entries) });
+        await chrome.storage.local.set({
+          savedTabs: savedTabs.concat(entries),
+        });
       } catch (err) {
         return { ok: false, reason: "storage_full" };
       }

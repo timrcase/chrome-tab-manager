@@ -4,11 +4,9 @@ A Chrome extension for power users who accumulate tabs. Save, tag, back up, and 
 
 ## Features
 
-**Save tabs** — Close a tab and save it with optional tags and a `go:` shortcode for instant recall from the address bar.
+**Save tabs** — Close a tab and save it with optional tags for instant recall.
 
 **Tag & filter** — Organize saved tabs with freeform tags. Filter by one or more tags to find what you need fast.
-
-**`go:` shortcuts** — Assign a shortcode to any saved tab. Type `go keyword` in the address bar to navigate directly to it.
 
 **Backup** — Automatically snapshot all open tabs on a configurable schedule. Restore individual tabs or entire snapshots into a new window, preserving tab groups.
 
@@ -37,7 +35,6 @@ Load unpacked from Chrome:
 | Save current tab                   | Click the extension icon                      |
 | Open Tab Manager                   | Right-click extension icon → Open Tab Manager |
 | Cleanup duplicates / stale tabs    | Right-click extension icon → Cleanup Tabs     |
-| Navigate via shortcode             | Type `go <shortcode>` in the address bar      |
 | Configure backup, archive, cleanup | Options page (⚙ button in header)             |
 
 ## Privacy

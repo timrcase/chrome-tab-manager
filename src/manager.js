@@ -51,31 +51,34 @@ function daysUntilPurge(closedAt, purgeDays) {
   return remaining;
 }
 
-function googleFaviconUrl(pageUrl) {
-  try {
-    const { hostname } = new URL(pageUrl);
-    return hostname ? `https://www.google.com/s2/favicons?domain=${hostname}&sz=16` : null;
-  } catch { return null; }
+function purgeCountdownText(closedAt, purgeDays) {
+  if (purgeDays === 0) return 'Kept forever';
+
+  const days = daysUntilPurge(closedAt, purgeDays);
+  if (days === null) return '';
+  if (days <= 0) return 'Deletes soon';
+  if (days === 1) return 'Deletes in 1d';
+  return `Deletes in ${days}d`;
 }
 
-function makeFavicon(favIconUrl, tabUrl, title) {
-  const primary = favIconUrl || googleFaviconUrl(tabUrl);
-  const secondary = favIconUrl ? googleFaviconUrl(tabUrl) : null;
-
-  if (!primary) return makePlaceholder(title);
+function makeFavicon(favIconUrl, title) {
+  if (!favIconUrl) return makePlaceholder(title);
 
   const img = document.createElement('img');
-  img.src = primary;
+  img.src = favIconUrl;
   img.className = 'item-favicon';
-  img.onerror = () => {
-    if (secondary && img.src !== secondary) {
-      img.src = secondary;
-      img.onerror = () => img.replaceWith(makePlaceholder(title));
-    } else {
-      img.replaceWith(makePlaceholder(title));
-    }
-  };
+  img.onerror = () => img.replaceWith(makePlaceholder(title));
   return img;
+}
+
+function makeIcon(name) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  svg.classList.add('ui-icon');
+  svg.setAttribute('aria-hidden', 'true');
+  use.setAttribute('href', `icons/ui-icons.svg#${name}`);
+  svg.appendChild(use);
+  return svg;
 }
 
 function makePlaceholder(title) {
@@ -101,7 +104,13 @@ async function loadAll() {
   state.archiveList = data.archiveList || [];
   state.settings = data.settings || {};
   render();
-  if (!otState.loaded) loadOpenTabs();
+  const validPages = ['saved', 'open', 'backup', 'archive'];
+  const defaultPage = validPages.includes(state.settings.defaultManagerPage)
+    ? state.settings.defaultManagerPage
+    : 'open';
+  activateSection(defaultPage);
+  // Eager-preload open tabs so counts/switching is instant even when default page isn't Open
+  if (defaultPage !== 'open' && !otState.loaded) loadOpenTabs();
 }
 
 // ─── Render ───────────────────────────────────────────────────────────────────
@@ -208,7 +217,7 @@ function makeSavedCard(tab) {
   const main = document.createElement('div');
   main.className = 'item-main';
 
-  main.appendChild(makeFavicon(tab.favIconUrl, tab.url, tab.title));
+  main.appendChild(makeFavicon(tab.favIconUrl, tab.title));
 
   const info = document.createElement('div');
   info.className = 'item-info';
@@ -238,20 +247,14 @@ function makeSavedCard(tab) {
   openBtn.className = 'btn btn-primary btn-icon';
   openBtn.title = 'Open saved tab';
   openBtn.setAttribute('aria-label', 'Open saved tab');
-  const openIcon = document.createElement('span');
-  openIcon.className = 'material-symbols-outlined';
-  openIcon.textContent = 'open_in_new';
-  openBtn.appendChild(openIcon);
+  openBtn.appendChild(makeIcon('open-in-new'));
   openBtn.onclick = () => send({ action: 'restoreSavedTab', id: tab.id });
   const deleteBtn = document.createElement('button');
   deleteBtn.type = 'button';
   deleteBtn.className = 'btn btn-ghost btn-icon saved-delete-btn';
   deleteBtn.title = 'Delete';
   deleteBtn.setAttribute('aria-label', 'Delete saved tab');
-  const deleteIcon = document.createElement('span');
-  deleteIcon.className = 'material-symbols-outlined';
-  deleteIcon.textContent = 'delete';
-  deleteBtn.appendChild(deleteIcon);
+  deleteBtn.appendChild(makeIcon('delete'));
   deleteBtn.onclick = async () => {
     await send({ action: 'deleteSavedTab', id: tab.id });
     state.savedTabs = state.savedTabs.filter((t) => t.id !== tab.id);
@@ -431,7 +434,7 @@ function makeSnapshotCard(snapshot) {
       const row = document.createElement('div');
       row.className = groupId !== -1 ? 'snapshot-tab-row snapshot-tab-row--grouped' : 'snapshot-tab-row';
 
-      row.appendChild(makeFavicon(t.favIconUrl, t.url, t.title));
+      row.appendChild(makeFavicon(t.favIconUrl, t.title));
 
       const title = document.createElement('span');
       title.className = 'snapshot-tab-title';
@@ -444,10 +447,7 @@ function makeSnapshotCard(snapshot) {
       const openBtn = document.createElement('button');
       openBtn.className = 'btn btn-ghost btn-icon';
       openBtn.title = 'Open tab';
-      const openIcon = document.createElement('span');
-      openIcon.className = 'material-symbols-outlined';
-      openIcon.textContent = 'open_in_new';
-      openBtn.appendChild(openIcon);
+      openBtn.appendChild(makeIcon('open-in-new'));
       openBtn.onclick = () => send({ action: 'restoreBackupTab', url: t.url });
 
       row.appendChild(title);
@@ -534,7 +534,7 @@ function makeArchiveCard(entry, purgeDays) {
   main.className = 'item-main';
   main.style.cursor = 'default';
 
-  main.appendChild(makeFavicon(entry.favIconUrl, entry.url, entry.title));
+  main.appendChild(makeFavicon(entry.favIconUrl, entry.title));
 
   const info = document.createElement('div');
   info.className = 'item-info';
@@ -545,43 +545,65 @@ function makeArchiveCard(entry, purgeDays) {
   const meta = document.createElement('div');
   meta.className = 'item-meta';
 
-  const ago = document.createElement('span');
-  ago.className = 'days-remaining';
-  ago.textContent = formatDaysAgo(entry.closedAt);
-  meta.appendChild(ago);
+  const archivedAt = document.createElement('span');
+  archivedAt.className = 'archive-meta archive-meta--archived';
+  archivedAt.textContent = `Archived ${formatDaysAgo(entry.closedAt)}`;
+  archivedAt.title = `Archived ${formatDate(entry.closedAt)}`;
+  meta.appendChild(archivedAt);
 
-  if (purgeDays > 0) {
-    const days = daysUntilPurge(entry.closedAt, purgeDays);
-    if (days !== null && days <= 3) {
-      const warn = document.createElement('span');
-      warn.className = 'days-remaining';
-      warn.style.color = 'var(--danger)';
-      warn.textContent = days <= 0 ? 'Purging soon' : `Purges in ${days}d`;
-      meta.appendChild(warn);
-    }
+  const purgeAt = document.createElement('span');
+  const days = daysUntilPurge(entry.closedAt, purgeDays);
+  purgeAt.className = 'archive-meta archive-meta--delete';
+  if (purgeDays > 0 && days !== null && days <= 3) {
+    purgeAt.classList.add('archive-meta--danger');
   }
+  purgeAt.textContent = purgeCountdownText(entry.closedAt, purgeDays);
+  purgeAt.title = purgeDays === 0
+    ? 'Automatic deletion is disabled'
+    : `Deletes after ${formatDate(entry.closedAt + purgeDays * 86400000)}`;
+  meta.appendChild(purgeAt);
 
   const restoreBtn = document.createElement('button');
-  restoreBtn.className = 'btn btn-ghost btn-sm';
-  restoreBtn.textContent = 'Restore';
+  restoreBtn.type = 'button';
+  restoreBtn.className = 'btn btn-primary btn-icon';
+  restoreBtn.title = 'Restore tab';
+  restoreBtn.setAttribute('aria-label', 'Restore tab');
+  restoreBtn.appendChild(makeIcon('open-in-new'));
   restoreBtn.onclick = async () => {
     await send({ action: 'restoreBackupTab', url: entry.url });
     await send({ action: 'deleteArchiveEntry', id: entry.id });
     state.archiveList = state.archiveList.filter((e) => e.id !== entry.id);
     render();
   };
-  meta.appendChild(restoreBtn);
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'btn btn-ghost btn-icon';
+  saveBtn.title = 'Move to Saved Tabs';
+  saveBtn.setAttribute('aria-label', 'Move to Saved Tabs');
+  saveBtn.appendChild(makeIcon('save'));
+  saveBtn.onclick = async () => {
+    await send({ action: 'archiveToSaved', id: entry.id });
+    state.archiveList = state.archiveList.filter((e) => e.id !== entry.id);
+    const { savedTabs } = await chrome.storage.local.get('savedTabs');
+    state.savedTabs = savedTabs || [];
+    render();
+  };
 
   const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'btn btn-ghost btn-sm';
-  deleteBtn.style.color = 'var(--danger)';
-  deleteBtn.textContent = 'Delete';
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'btn btn-ghost btn-icon saved-delete-btn';
+  deleteBtn.title = 'Delete';
+  deleteBtn.setAttribute('aria-label', 'Delete archived tab');
+  deleteBtn.appendChild(makeIcon('delete'));
   deleteBtn.onclick = async () => {
     await send({ action: 'deleteArchiveEntry', id: entry.id });
     state.archiveList = state.archiveList.filter((e) => e.id !== entry.id);
     render();
   };
   meta.appendChild(deleteBtn);
+  meta.appendChild(saveBtn);
+  meta.appendChild(restoreBtn);
 
   main.appendChild(meta);
   card.appendChild(main);
@@ -615,6 +637,7 @@ async function loadOpenTabs() {
     .filter(t => t.url && !t.url.startsWith('chrome://') && !t.url.startsWith('chrome-extension://'))
     .map(t => ({
       tabId: t.id,
+      windowId: t.windowId,
       index: t.index,
       title: t.title || t.url,
       url: t.url,
@@ -704,8 +727,9 @@ function otMakeRow(tab) {
   tdChk.className = 'ot-chk-cell';
   if (tab.pinned) {
     const pin = document.createElement('span');
-    pin.className = 'material-symbols-outlined ot-pin-icon';
-    pin.textContent = 'push_pin';
+    pin.className = 'ot-pin-icon-wrap';
+    pin.title = 'Pinned';
+    pin.appendChild(makeIcon('push-pin'));
     tdChk.appendChild(pin);
   } else {
     const chk = document.createElement('input');
@@ -729,7 +753,7 @@ function otMakeRow(tab) {
 
   // Favicon
   const tdFav = document.createElement('td');
-  tdFav.appendChild(makeFavicon(tab.favIconUrl, tab.url, tab.title));
+  tdFav.appendChild(makeFavicon(tab.favIconUrl, tab.title));
   tr.appendChild(tdFav);
 
   // Title + URL
@@ -737,8 +761,10 @@ function otMakeRow(tab) {
   const titleRow = document.createElement('div');
   titleRow.className = 'ot-title-row';
   const titleEl = document.createElement('span');
-  titleEl.className = 'ot-title';
+  titleEl.className = 'ot-title ot-title-link';
   titleEl.textContent = tab.title;
+  titleEl.title = 'Switch to tab';
+  titleEl.onclick = () => send({ action: 'activateTab', tabId: tab.tabId, windowId: tab.windowId });
   titleRow.appendChild(titleEl);
   if (tab.isDupe) {
     const b = document.createElement('span');
@@ -774,10 +800,7 @@ function otMakeRow(tab) {
   saveBtn.className = 'btn btn-ghost btn-sm btn-icon';
   saveBtn.title = 'Save & close';
   saveBtn.disabled = tab.pinned;
-  const saveIcon = document.createElement('span');
-  saveIcon.className = 'material-symbols-outlined';
-  saveIcon.textContent = 'bookmark_add';
-  saveBtn.appendChild(saveIcon);
+  saveBtn.appendChild(makeIcon('save'));
   saveBtn.onclick = async (e) => {
     e.stopPropagation();
     await send({ action: 'saveTabs', tabIds: [tab.tabId] });
@@ -794,10 +817,7 @@ function otMakeRow(tab) {
   closeBtn.className = 'btn btn-ghost btn-sm btn-icon';
   closeBtn.title = 'Close tab';
   closeBtn.disabled = tab.pinned;
-  const closeIcon = document.createElement('span');
-  closeIcon.className = 'material-symbols-outlined';
-  closeIcon.textContent = 'close';
-  closeBtn.appendChild(closeIcon);
+  closeBtn.appendChild(makeIcon('close'));
   closeBtn.onclick = async (e) => {
     e.stopPropagation();
     await send({ action: 'closeTabs', tabIds: [tab.tabId] });
@@ -822,14 +842,18 @@ function otUpdateBulkBar() {
 
 
 // ─── Tab navigation ───────────────────────────────────────────────────────────
+function activateSection(key) {
+  const btn = document.querySelector(`.tab-btn[data-tab="${key}"]`);
+  if (!btn) return;
+  document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+  document.querySelectorAll('.section').forEach((s) => s.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(`section-${key}`).classList.add('active');
+  if (key === 'open' && !otState.loaded) loadOpenTabs();
+}
+
 document.querySelectorAll('.tab-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
-    document.querySelectorAll('.section').forEach((s) => s.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById(`section-${btn.dataset.tab}`).classList.add('active');
-    if (btn.dataset.tab === 'open' && !otState.loaded) loadOpenTabs();
-  });
+  btn.addEventListener('click', () => activateSection(btn.dataset.tab));
 });
 
 // ─── Event bindings ───────────────────────────────────────────────────────────

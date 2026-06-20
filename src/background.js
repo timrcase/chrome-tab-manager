@@ -7,6 +7,8 @@ const tabsClosedByExtension = new Set();
 
 // ─── Default settings ────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
+  defaultManagerPage: "open",
+  iconAction: "popup",
   backupEnabled: true,
   backupIntervalMinutes: 60,
   backupMaxSnapshots: 10,
@@ -26,6 +28,7 @@ if (!chrome.runtime.getManifest().update_url) {
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 chrome.runtime.onInstalled.addListener(async () => {
   await initSettings();
+  await applyIconActionFromStorage();
   await warmTabCache();
   await rescheduleAlarms();
   chrome.contextMenus.removeAll(() => {
@@ -35,6 +38,21 @@ chrome.runtime.onInstalled.addListener(async () => {
       contexts: ["action"],
     });
   });
+});
+
+// Toggle whether the toolbar icon opens the popup or jumps straight to the
+// manager page. Empty popup string makes chrome.action.onClicked fire instead.
+async function applyIconAction(iconAction) {
+  const popup = iconAction === "page" ? "" : "popup.html";
+  try {
+    await chrome.action.setPopup({ popup });
+  } catch (e) {
+    // ignore — action may be unavailable in some contexts
+  }
+}
+
+chrome.action.onClicked.addListener(() => {
+  openOrFocusTab(chrome.runtime.getURL("manager.html"));
 });
 
 async function openOrFocusTab(url) {
@@ -54,9 +72,15 @@ chrome.contextMenus.onClicked.addListener((info) => {
 });
 
 chrome.runtime.onStartup.addListener(async () => {
+  await applyIconActionFromStorage();
   await warmTabCache();
   await rescheduleAlarms();
 });
+
+async function applyIconActionFromStorage() {
+  const { settings } = await chrome.storage.local.get("settings");
+  await applyIconAction(settings?.iconAction || DEFAULT_SETTINGS.iconAction);
+}
 
 async function initSettings() {
   const { settings } = await chrome.storage.local.get("settings");
@@ -383,6 +407,28 @@ async function handleMessage(msg) {
       return { ok: true };
     }
 
+    case "archiveToSaved": {
+      const { archiveList = [], savedTabs = [] } =
+        await chrome.storage.local.get(["archiveList", "savedTabs"]);
+      const entry = archiveList.find((e) => e.id === msg.id);
+      if (!entry) return { ok: false, error: "Not found" };
+      const saved = makeSavedTabEntry({
+        url: entry.url,
+        title: entry.title,
+        favIconUrl: entry.favIconUrl,
+      });
+      const filtered = archiveList.filter((e) => e.id !== msg.id);
+      try {
+        await chrome.storage.local.set({
+          savedTabs: savedTabs.concat(saved),
+          archiveList: filtered,
+        });
+      } catch (err) {
+        return { ok: false, reason: "storage_full" };
+      }
+      return { ok: true };
+    }
+
     case "clearArchive": {
       await chrome.storage.local.set({ archiveList: [] });
       return { ok: true };
@@ -401,6 +447,14 @@ async function handleMessage(msg) {
     case "updateSettings": {
       const s = msg.settings || {};
       const validated = {
+        defaultManagerPage: ["saved", "open", "backup", "archive"].includes(
+          s.defaultManagerPage,
+        )
+          ? s.defaultManagerPage
+          : DEFAULT_SETTINGS.defaultManagerPage,
+        iconAction: ["popup", "page"].includes(s.iconAction)
+          ? s.iconAction
+          : DEFAULT_SETTINGS.iconAction,
         backupEnabled: Boolean(s.backupEnabled),
         backupIgnoreGroups: Boolean(s.backupIgnoreGroups),
         backupIntervalMinutes: numberSetting(
@@ -427,6 +481,7 @@ async function handleMessage(msg) {
       };
       await chrome.storage.local.set({ settings: validated });
       await rescheduleAlarms();
+      await applyIconAction(validated.iconAction);
       return { ok: true };
     }
 
@@ -504,6 +559,21 @@ async function handleMessage(msg) {
       closeable.forEach((id) => tabsClosedByExtension.add(id));
       await chrome.tabs.remove(closeable);
       return { ok: true, closed: closeable.length };
+    }
+
+    case "activateTab": {
+      const tabId = msg.tabId;
+      if (typeof tabId !== "number") return { ok: false, error: "No tabId" };
+      try {
+        const tab = await chrome.tabs.get(tabId);
+        await chrome.tabs.update(tabId, { active: true });
+        if (tab.windowId != null) {
+          await chrome.windows.update(tab.windowId, { focused: true });
+        }
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: "Tab not found" };
+      }
     }
 
     default:

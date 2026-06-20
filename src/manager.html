@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tab Manager</title>
   <link rel="stylesheet" href="manager.css" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,100..400,0,0" />
 </head>
 <body>
   <header class="app-header">
@@ -18,17 +17,17 @@
   <div class="app">
     <!-- Left nav -->
     <nav class="tab-nav">
-      <button class="tab-btn active" data-tab="saved">
-        Saved <span class="tab-badge" id="savedCount">0</span>
-      </button>
-      <button class="tab-btn" data-tab="open">
+      <button class="tab-btn active" data-tab="open">
         Open <span class="tab-badge" id="openCount">0</span>
       </button>
-      <button class="tab-btn" data-tab="backup">
-        Backup <span class="tab-badge" id="backupCount">0</span>
+      <button class="tab-btn" data-tab="saved">
+        Saved <span class="tab-badge" id="savedCount">0</span>
       </button>
       <button class="tab-btn" data-tab="archive">
         Archive <span class="tab-badge" id="archiveCount">0</span>
+      </button>
+      <button class="tab-btn" data-tab="backup">
+        Backup <span class="tab-badge" id="backupCount">0</span>
       </button>
     </nav>
 
@@ -59,7 +58,10 @@
     <section class="section" id="section-open">
       <div class="section-header">
         <span class="section-title">Open Tabs</span>
-        <button class="btn btn-secondary btn-sm" id="refreshOpenTabs"><span class="material-symbols-outlined">refresh</span>Refresh</button>
+        <button class="btn btn-secondary btn-sm" id="refreshOpenTabs">
+          <svg class="ui-icon" aria-hidden="true"><use href="icons/ui-icons.svg#refresh"></use></svg>
+          Refresh
+        </button>
       </div>
       <div class="ot-toolbar">
         <div class="ot-filters" id="otFilters">

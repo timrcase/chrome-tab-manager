@@ -299,10 +299,6 @@ body {
   flex-shrink: 0;
 }
 
-.item-meta .btn-icon {
-  flex-shrink: 0;
-}
-
 
 /* ─── Inline tag editor (saved cards) ──────────────────────────────────────── */
 .saved-tags {
@@ -399,12 +395,7 @@ body {
 }
 .btn-secondary:hover { border-color: var(--accent-dim); }
 
-.btn-secondary .material-symbols-outlined {
-  font-size: 14px;
-  line-height: 1;
-  margin-right: 4px;
-  vertical-align: -2px;
-}
+.btn-secondary .ui-icon { margin-right: 4px; }
 
 .btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .btn-danger:hover  { opacity: 0.85; }
@@ -422,15 +413,22 @@ body {
 .btn-icon {
   align-items: center;
   display: inline-flex;
+  flex: 0 0 auto;
   height: 30px;
   justify-content: center;
+  min-height: 30px;
+  min-width: 30px;
   padding: 0;
   width: 30px;
 }
 
-.btn-icon .material-symbols-outlined {
-  font-size: 17px;
+.ui-icon {
+  display: inline-block;
+  fill: currentColor;
+  height: 17px;
   line-height: 1;
+  vertical-align: -3px;
+  width: 17px;
 }
 
 /* ─── Options button ────────────────────────────────────────────────────────── */
@@ -585,10 +583,29 @@ body {
   margin-bottom: 12px;
 }
 
-.days-remaining {
-  color: var(--text-muted);
+.archive-meta {
+  border: 1px solid var(--border);
+  border-radius: 5px;
   flex-shrink: 0;
+  font-family: var(--mono);
   font-size: 11px;
+  line-height: 1.4;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.archive-meta--archived {
+  color: var(--text-muted);
+}
+
+.archive-meta--delete {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.archive-meta--danger {
+  border-color: rgba(217, 85, 85, 0.45);
+  color: var(--danger);
 }
 
 /* ─── Open Tabs ─────────────────────────────────────────────────────────────── */
@@ -714,6 +731,15 @@ body {
   white-space: nowrap;
 }
 
+.ot-title-link {
+  cursor: pointer;
+}
+
+.ot-title-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .ot-url {
   color: var(--text-muted);
   font-size: 11px;
@@ -778,12 +804,15 @@ body {
 .ot-table tbody tr:hover .ot-row-chk,
 .ot-table tbody tr.ot-selected .ot-row-chk { opacity: 1; }
 
-.ot-pin-icon {
+.ot-pin-icon-wrap {
   color: var(--text-muted);
-  font-size: 11px;
-  font-variation-settings: 'opsz' 20, 'wght' 100, 'FILL' 0, 'GRAD' 0;
   line-height: 1;
   vertical-align: middle;
+}
+
+.ot-pin-icon-wrap .ui-icon {
+  height: 13px;
+  width: 13px;
 }
 
 

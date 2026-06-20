@@ -14,6 +14,43 @@
 
   <div class="app">
 
+    <!-- General settings -->
+    <div class="card">
+      <div class="card-title">General</div>
+
+      <div class="form-row">
+        <label class="form-label" for="iconAction">
+          Toolbar icon opens
+          <span class="form-sublabel">What happens when you click the extension icon</span>
+        </label>
+        <div class="form-control">
+          <div class="select-wrap">
+            <select id="iconAction" class="form-select">
+              <option value="page">Tab Manager</option>
+              <option value="popup">Popup</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="defaultManagerPage">
+          Default page
+          <span class="form-sublabel">Page shown when opening the Tab Manager from the popup or context menu</span>
+        </label>
+        <div class="form-control">
+          <div class="select-wrap">
+            <select id="defaultManagerPage" class="form-select">
+              <option value="open">Open Tabs</option>
+              <option value="saved">Saved Tabs</option>
+              <option value="archive">Stale Tab Archive</option>
+              <option value="backup">Tab Backups</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Backup settings -->
     <div class="card">
       <div class="card-title">Backup</div>

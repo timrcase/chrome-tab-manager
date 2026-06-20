@@ -344,6 +344,47 @@ input[type="checkbox"]:focus-visible + .toggle-track {
   width: 100%;
 }
 
+.select-wrap {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+  position: relative;
+  transition: border-color 0.15s;
+}
+
+.select-wrap:focus-within { border-color: var(--accent); }
+
+.form-select {
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  padding: 6px 28px 6px 10px;
+  width: 100%;
+}
+
+.form-select option {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.select-wrap::after {
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--text-muted);
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
 .input-unit {
   align-items: center;
   border-left: 1px solid var(--border);

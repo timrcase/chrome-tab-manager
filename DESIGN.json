@@ -69,7 +69,7 @@
       "title": { "displayName": "Title", "purpose": "App title in manager header. Appears once per view." },
       "body": { "displayName": "Body", "purpose": "Tab titles, form labels, interactive elements." },
       "label": { "displayName": "Label", "purpose": "Uppercase section headers (SAVED TABS, BACKUP)." },
-      "mono": { "displayName": "Mono", "purpose": "Go-codes, keyboard hints, timestamps. Terminal-domain content only." }
+      "mono": { "displayName": "Mono", "purpose": "Keyboard hints and timestamps. Terminal-domain content only." }
     },
     "shadows": [
       {
@@ -125,24 +125,16 @@
       "kind": "input",
       "refersTo": "input-default",
       "description": "Single-line text field. Surface Two background. Focus shifts border to Phosphor Green.",
-      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"shortcode\" />",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"tag\" />",
       "css": ".ds-input { background: #182018; border: 1px solid #1e2d1e; border-radius: 5px; color: #dff0df; font-size: 13px; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 5px 8px; outline: none; transition: border-color 0.15s; width: 200px; } .ds-input::placeholder { color: #7a9a7a; } .ds-input:focus { border-color: #3dba6e; }"
-    },
-    {
-      "name": "Go Badge",
-      "kind": "custom",
-      "refersTo": "go-badge",
-      "description": "Omnibox shortcode badge. Signature component. JetBrains Mono, phosphor green on dim background. Never rendered empty.",
-      "html": "<span class=\"ds-go-badge\">go: gh-prs</span>",
-      "css": ".ds-go-badge { display: inline-block; background: #1a3a22; color: #3dba6e; border-radius: 5px; padding: 2px 6px; font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace; font-size: 11px; font-weight: 400; line-height: 1.5; }"
     },
     {
       "name": "Item Card",
       "kind": "card",
       "refersTo": "button-secondary",
       "description": "Saved tab list row. Surface One background, Terminal Border at rest, Phosphor Dim border on hover.",
-      "html": "<div class=\"ds-item-card\"><div class=\"ds-item-main\"><div class=\"ds-item-icon\">G</div><div class=\"ds-item-info\"><div class=\"ds-item-title\">GitHub — Pull Requests</div><div class=\"ds-item-url\">github.com/owner/repo/pulls</div></div><div class=\"ds-item-meta\"><span class=\"ds-chip\">work</span><span class=\"ds-go-badge\">go: gh-prs</span></div></div></div>",
-      "css": ".ds-item-card { background: #131a13; border: 1px solid #1e2d1e; border-radius: 8px; overflow: hidden; transition: border-color 0.15s; } .ds-item-card:hover { border-color: #1a3a22; } .ds-item-main { display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; } .ds-item-icon { width: 16px; height: 16px; border-radius: 2px; background: #182018; color: #7a9a7a; font-size: 10px; font-family: ui-sans-serif, sans-serif; display: flex; align-items: center; justify-content: center; flex-shrink: 0; } .ds-item-info { flex: 1; min-width: 0; } .ds-item-title { color: #dff0df; font-size: 14px; font-weight: 500; font-family: ui-sans-serif, -apple-system, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-item-url { color: #7a9a7a; font-size: 12px; font-family: ui-sans-serif, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; } .ds-item-meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; } .ds-chip { display: inline-flex; align-items: center; background: #1a2a1a; border: 1px solid #1e2d1e; border-radius: 20px; color: #7a9a7a; font-size: 11px; font-family: ui-sans-serif, sans-serif; padding: 2px 8px; } .ds-go-badge { display: inline-block; background: #1a3a22; color: #3dba6e; border-radius: 5px; padding: 2px 6px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; }"
+      "html": "<div class=\"ds-item-card\"><div class=\"ds-item-main\"><div class=\"ds-item-icon\">G</div><div class=\"ds-item-info\"><div class=\"ds-item-title\">GitHub — Pull Requests</div><div class=\"ds-item-url\">github.com/owner/repo/pulls</div></div><div class=\"ds-item-meta\"><span class=\"ds-chip\">work</span></div></div></div>",
+      "css": ".ds-item-card { background: #131a13; border: 1px solid #1e2d1e; border-radius: 8px; overflow: hidden; transition: border-color 0.15s; } .ds-item-card:hover { border-color: #1a3a22; } .ds-item-main { display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; } .ds-item-icon { width: 16px; height: 16px; border-radius: 2px; background: #182018; color: #7a9a7a; font-size: 10px; font-family: ui-sans-serif, sans-serif; display: flex; align-items: center; justify-content: center; flex-shrink: 0; } .ds-item-info { flex: 1; min-width: 0; } .ds-item-title { color: #dff0df; font-size: 14px; font-weight: 500; font-family: ui-sans-serif, -apple-system, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-item-url { color: #7a9a7a; font-size: 12px; font-family: ui-sans-serif, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; } .ds-item-meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; } .ds-chip { display: inline-flex; align-items: center; background: #1a2a1a; border: 1px solid #1e2d1e; border-radius: 20px; color: #7a9a7a; font-size: 11px; font-family: ui-sans-serif, sans-serif; padding: 2px 8px; }"
     },
     {
       "name": "Tab Navigation",
@@ -159,7 +151,7 @@
     "keyCharacteristics": [
       "Single accent color used in ≤15% of any surface",
       "All neutrals tinted toward the green hue — no pure greys",
-      "Monospace (JetBrains Mono) reserved for shortcodes, keyboard hints, timestamps",
+      "Monospace (JetBrains Mono) reserved for keyboard hints and timestamps",
       "Flat by default; tonal layering creates depth without shadows",
       "State transitions at 150ms maximum",
       "Density respects power users; no decorative padding"
@@ -168,13 +160,13 @@
       { "name": "The One Voice Rule", "body": "Phosphor Green is the only accent. It appears on ≤15% of any given surface. No secondary accent, no blue, purple, or teal.", "section": "colors" },
       { "name": "The Substrate Rule", "body": "Every neutral from terminal-black to text-muted is tinted toward the green hue. Pure greys do not belong in this system.", "section": "colors" },
       { "name": "The No-Glow Rule", "body": "The accent color is never expressed as a glow, bloom, or diffuse box-shadow. A crisp border-color or background shift is the maximum expression.", "section": "colors" },
-      { "name": "The Mono Restraint Rule", "body": "Monospace type appears in exactly three contexts: shortcodes (go: keyword), keyboard hint strings, and timestamps.", "section": "typography" },
+      { "name": "The Mono Restraint Rule", "body": "Monospace type appears in exactly two contexts: keyboard hint strings and timestamps.", "section": "typography" },
       { "name": "The Tonal Stack Rule", "body": "Never skip a layer. Inputs sit on Surface Two, which sits on Surface One (cards), which sits on Terminal Black.", "section": "elevation" },
       { "name": "The Flat-At-Rest Rule", "body": "Surfaces are flat at rest. No hover shadow on cards. Shadows are for true overlays only.", "section": "elevation" }
     ],
     "dos": [
       "Do tint every neutral toward the green hue.",
-      "Do use JetBrains Mono exclusively for shortcodes, keyboard hints, and timestamps.",
+      "Do use JetBrains Mono exclusively for keyboard hints and timestamps.",
       "Do express depth through the tonal stack: Terminal Black → Surface One → Surface Two.",
       "Do keep all state transitions at 150ms or under.",
       "Do keep Phosphor Green rare — one active state, one primary action, one badge class per screen.",

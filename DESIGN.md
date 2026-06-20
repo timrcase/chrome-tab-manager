@@ -97,11 +97,6 @@ components:
     textColor: "{colors.phosphor-green}"
     rounded: "20px"
     padding: "2px 8px"
-  go-badge:
-    backgroundColor: "{colors.phosphor-dim}"
-    textColor: "{colors.phosphor-green}"
-    rounded: "{rounded.sm}"
-    padding: "2px 6px"
 ---
 
 # Design System: Tab Manager
@@ -112,7 +107,7 @@ components:
 
 Tab Manager is a precision tool for power users who live in context. The design system takes its DNA from the CRT phosphor monitor — not as nostalgia, but as a source of honest constraints: high contrast, purposeful color, and a surface that recedes until you need it. Every element on screen is there because it works, not because it fills space.
 
-The system uses a single accent — Phosphor Green (`#3dba6e`) — against near-black green-tinted surfaces. This is not a dark-mode app that happens to be green. The green is structural: every neutral is tinted toward the hue, from the base layer up through inputs and borders. The accent is rare; its rarity is the point. When green appears in a concentrated form, it means something: an active state, a confirmed action, a navigable shortcode.
+The system uses a single accent — Phosphor Green (`#3dba6e`) — against near-black green-tinted surfaces. This is not a dark-mode app that happens to be green. The green is structural: every neutral is tinted toward the hue, from the base layer up through inputs and borders. The accent is rare; its rarity is the point. When green appears in a concentrated form, it means something: an active state or a confirmed action.
 
 Interaction feel is confident and deliberate. Elements do not eagerly animate or slide into place. State changes are crisp — a border sharpens, a color shifts — and the UI steps aside. Satisfying in the way a clean `git commit` is satisfying: task done, cursor ready.
 
@@ -121,7 +116,7 @@ This system explicitly rejects: the Halloween terminal (green glow blobs, scanli
 **Key Characteristics:**
 - Single accent color used in ≤15% of any surface; its absence makes its presence felt
 - All neutrals tinted toward the green hue; no pure greys in the system
-- Monospace (JetBrains Mono) reserved for functional terminal moments: shortcodes, keyboard hints, timestamps
+- Monospace (JetBrains Mono) reserved for functional terminal moments: keyboard hints and timestamps
 - Flat by default; tonal layering creates depth without shadows
 - State transitions at 150ms maximum; no loading spinners for local operations
 - Density respects power users; no padding added for breathing room that was not needed
@@ -131,8 +126,8 @@ This system explicitly rejects: the Halloween terminal (green glow blobs, scanli
 One accent, many depths. Every neutral carries the hue.
 
 ### Primary
-- **Phosphor Green** (`#3dba6e`): The sole accent. Used on active states, primary button fill, go-code badges, active tab indicators, and focused input borders. Never used decoratively. Its presence signals interactivity or confirmation; its absence signals rest.
-- **Phosphor Dim** (`#1a3a22`): The accent's shadow. Background tint behind accent text (go-badges, active chips, checked toggles). Keeps the accent from floating on bare black.
+- **Phosphor Green** (`#3dba6e`): The sole accent. Used on active states, primary button fill, active tab indicators, and focused input borders. Never used decoratively. Its presence signals interactivity or confirmation; its absence signals rest.
+- **Phosphor Dim** (`#1a3a22`): The accent's shadow. Background tint behind accent text (active chips, checked toggles). Keeps the accent from floating on bare black.
 
 ### Neutral
 - **Terminal Black** (`#0d0f0d`): Base layer. Page background. Slightly warmer than void black — the ambient warmth of a phosphor screen, not a blank.
@@ -156,17 +151,17 @@ One accent, many depths. Every neutral carries the hue.
 **UI Font:** System sans-serif (ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI')
 **Mono Font:** JetBrains Mono (with Fira Code, ui-monospace as fallbacks)
 
-**Character:** The system sans carries all prose and UI labels — neutral, legible, invisible. JetBrains Mono carries the extension's terminal identity: shortcodes, keyboard hint strings, timestamps. The contrast is deliberate: workhorse sans interrupted by purposeful mono. Mono is the seasoning, not the dish.
+**Character:** The system sans carries all prose and UI labels — neutral, legible, invisible. JetBrains Mono carries the extension's terminal identity: keyboard hint strings and timestamps. The contrast is deliberate: workhorse sans interrupted by purposeful mono. Mono is the seasoning, not the dish.
 
 ### Hierarchy
 - **Title** (700, 22px, line-height 1.2, -0.3px tracking): App title in the manager header. Appears once per view. Tight tracking makes it read as a logotype rather than a heading.
 - **Body** (400–500, 14px, line-height 1.5): Tab titles, form labels, and most interactive elements. Weight 500 used for item titles and active states; weight 400 for all supporting copy.
 - **Secondary** (400, 13px): Input text, button labels, tag chip content. One step below body — distinguishes interactive controls from content.
 - **Label** (600, 11–12px, 0.5–0.6px tracking, uppercase): Section headers (SAVED TABS, BACKUP). Uppercase tracking is structural, not stylistic — it marks organizational hierarchy at a glance.
-- **Mono** (400, 13px, JetBrains Mono): Go-codes (`go: keyword`), keyboard shortcuts, timestamps. Colored in `{colors.phosphor-green}` for go-badges; `{colors.text-muted}` for ambient timestamp/hint display.
+- **Mono** (400, 13px, JetBrains Mono): Keyboard shortcuts and timestamps. Colored in `{colors.text-muted}` for ambient timestamp/hint display.
 
 ### Named Rules
-**The Mono Restraint Rule.** Monospace type appears in exactly three contexts: omnibox shortcodes (`go: keyword`), keyboard hint strings, and timestamps. If you are reaching for mono to make something look technical rather than because it is terminal-domain content, use the system sans.
+**The Mono Restraint Rule.** Monospace type appears in exactly two contexts: keyboard hint strings and timestamps. If you are reaching for mono to make something look technical rather than because it is terminal-domain content, use the system sans.
 
 ## 4. Elevation
 
@@ -218,18 +213,11 @@ Confident and deliberate. No gradients, no soft hover halos. Opacity steps signa
 - **Badge counts:** Surface Two pill at rest; Phosphor Dim pill with Phosphor Green text when the parent tab is active.
 - **Transition:** 150ms on color and border-color.
 
-### Go Badge (Signature Component)
-The `go: keyword` badge is the extension's most distinctive element — the visible artifact of the omnibox shortcode system. It appears inline in item cards wherever a shortcode has been assigned.
-
-- **Style:** Phosphor Dim background (`#1a3a22`), Phosphor Green text (`#3dba6e`), 5px radius, 2px 6px padding
-- **Font:** JetBrains Mono, 11px, weight 400. This is a terminal string, not a label.
-- **Presence rule:** Never render empty. If a tab has no shortcode assigned, the badge is absent — not a placeholder, not an empty container.
-
 ## 6. Do's and Don'ts
 
 ### Do:
 - **Do** tint every neutral toward the green hue. There are no pure greys in this system — `#1a1a1a` becomes `#131a13`; `#888` becomes `#7a9a7a`.
-- **Do** use JetBrains Mono exclusively for shortcodes (`go: keyword`), keyboard hint strings, and timestamps. Use the system sans for everything else.
+- **Do** use JetBrains Mono exclusively for keyboard hint strings and timestamps. Use the system sans for everything else.
 - **Do** express depth through the tonal stack: Terminal Black → Surface One → Surface Two. Layer surfaces in order.
 - **Do** keep all state transitions at 150ms or under. The UI confirms before the user doubts.
 - **Do** keep Phosphor Green rare. One active state, one primary action, one badge class per screen — no more.

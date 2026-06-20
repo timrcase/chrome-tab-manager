@@ -1,29 +1,12 @@
 const pendingTags = [];
 
-function googleFaviconUrl(pageUrl) {
-  try {
-    const { hostname } = new URL(pageUrl);
-    return hostname ? `https://www.google.com/s2/favicons?domain=${hostname}&sz=16` : null;
-  } catch { return null; }
-}
-
-function makeFavicon(favIconUrl, tabUrl, title) {
-  const primary = favIconUrl || googleFaviconUrl(tabUrl);
-  const secondary = favIconUrl ? googleFaviconUrl(tabUrl) : null;
-
-  if (!primary) return makePlaceholder(title);
+function makeFavicon(favIconUrl, title) {
+  if (!favIconUrl) return makePlaceholder(title);
 
   const img = document.createElement('img');
-  img.src = primary;
+  img.src = favIconUrl;
   img.className = 'sp-favicon';
-  img.onerror = () => {
-    if (secondary && img.src !== secondary) {
-      img.src = secondary;
-      img.onerror = () => img.replaceWith(makePlaceholder(title));
-    } else {
-      img.replaceWith(makePlaceholder(title));
-    }
-  };
+  img.onerror = () => img.replaceWith(makePlaceholder(title));
   return img;
 }
 
@@ -108,7 +91,7 @@ async function init() {
 
   // Always populate preview so the user knows which page triggered the state
   if (tab?.url) {
-    document.getElementById('spFavicon').appendChild(makeFavicon(tab.favIconUrl, tab.url, tab.title));
+    document.getElementById('spFavicon').appendChild(makeFavicon(tab.favIconUrl, tab.title));
     document.getElementById('spTitle').textContent = tab.title || tab.url;
     document.getElementById('spUrl').textContent = tab.url;
   }

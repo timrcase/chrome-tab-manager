@@ -1,4 +1,6 @@
 const DEFAULT_SETTINGS = {
+  defaultManagerPage: 'open',
+  iconAction: 'popup',
   backupEnabled: true,
   backupIntervalMinutes: 60,
   backupMaxSnapshots: 10,
@@ -27,6 +29,8 @@ async function loadSettings() {
       settings.archiveStaleThresholdDays ?? settings.staleTabThresholdDays ?? DEFAULT_SETTINGS.archiveStaleThresholdDays,
   };
 
+  document.getElementById('defaultManagerPage').value = s.defaultManagerPage || 'open';
+  document.getElementById('iconAction').value = s.iconAction || 'popup';
   document.getElementById('backupEnabled').checked = s.backupEnabled !== false;
   document.getElementById('backupIntervalMinutes').value = s.backupIntervalMinutes;
   document.getElementById('backupMaxSnapshots').value = s.backupMaxSnapshots;
@@ -134,6 +138,14 @@ function bindToggleField(key) {
 
 Object.keys(NUMBER_FIELDS).forEach(bindNumberField);
 TOGGLE_FIELDS.forEach(bindToggleField);
+
+document.getElementById('defaultManagerPage').addEventListener('change', (e) => {
+  saveField('defaultManagerPage', e.target.value);
+});
+
+document.getElementById('iconAction').addEventListener('change', (e) => {
+  saveField('iconAction', e.target.value);
+});
 
 document.getElementById('backupEnabled').addEventListener('change', updateBackupRowVisibility);
 document.getElementById('archiveEnabled').addEventListener('change', () => {

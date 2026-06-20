@@ -19,7 +19,7 @@ Take the phosphor green / black CRT monitor as a *source of DNA*, not a costume.
 - **Accent:** Phosphor green, desaturated enough to be readable — around `#3dba6e` / `#40c070` range. Not eye-searing `#00ff00`, not generic `#22c55e`.
 - **Surface layers:** Charcoal with green tint (`#131a13`, `#182018`) — every layer slightly greener than pure grey
 - **Text:** Off-white with slight green cast (`#dff0df`) and dimmed (`#7a9a7a`)
-- **Monospace moments:** Shortcodes (`go: keyword`), keyboard hints, timestamps — lean into `monospace` for these specifically
+- **Monospace moments:** Keyboard hints and timestamps — lean into `monospace` for these specifically
 - **No gradients, no glows, no shadows** unless they serve function. Borders and flat color carry the design.
 
 **Anti-references:** Anything that looks like a Halloween terminal (green glow blobs, scan-line overlays, blinking cursors as decoration). Also avoid generic dark-mode SaaS (pure charcoal + blue accent = could be any Tailwind app).

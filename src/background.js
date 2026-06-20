@@ -1,10 +1,3 @@
-// ─── In-memory state ────────────────────────────────────────────────────────
-// Maps Chrome tab IDs to their last-known data for lightweight lifecycle hygiene.
-const tabCache = new Map();
-
-// Tab IDs closed by the extension itself; clear them when Chrome reports removal.
-const tabsClosedByExtension = new Set();
-
 // ─── Default settings ────────────────────────────────────────────────────────
 const DEFAULT_SETTINGS = {
   defaultManagerPage: "open",
@@ -29,7 +22,6 @@ if (!chrome.runtime.getManifest().update_url) {
 chrome.runtime.onInstalled.addListener(async () => {
   await initSettings();
   await applyIconActionFromStorage();
-  await warmTabCache();
   await rescheduleAlarms();
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
@@ -73,7 +65,6 @@ chrome.contextMenus.onClicked.addListener((info) => {
 
 chrome.runtime.onStartup.addListener(async () => {
   await applyIconActionFromStorage();
-  await warmTabCache();
   await rescheduleAlarms();
 });
 
@@ -100,60 +91,6 @@ async function initSettings() {
     await chrome.storage.local.set({ settings: merged });
   }
 }
-
-async function warmTabCache() {
-  const tabs = await chrome.tabs.query({});
-  for (const tab of tabs) {
-    if (
-      tab.url &&
-      !tab.url.startsWith("chrome://") &&
-      !tab.url.startsWith("chrome-extension://")
-    ) {
-      tabCache.set(tab.id, {
-        url: tab.url,
-        title: tab.title || tab.url,
-        favIconUrl: tab.favIconUrl || null,
-      });
-    }
-  }
-}
-
-// ─── Tab tracking ────────────────────────────────────────────────────────────
-chrome.tabs.onCreated.addListener((tab) => {
-  if (
-    tab.url &&
-    !tab.url.startsWith("chrome://") &&
-    !tab.url.startsWith("chrome-extension://")
-  ) {
-    tabCache.set(tab.id, {
-      url: tab.url,
-      title: tab.title || tab.url,
-      favIconUrl: tab.favIconUrl || null,
-    });
-  }
-});
-
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (
-    tab.url &&
-    !tab.url.startsWith("chrome://") &&
-    !tab.url.startsWith("chrome-extension://")
-  ) {
-    tabCache.set(tabId, {
-      url: tab.url,
-      title: tab.title || tab.url,
-      favIconUrl: tab.favIconUrl || null,
-    });
-  }
-});
-
-chrome.tabs.onRemoved.addListener(async (tabId) => {
-  if (tabsClosedByExtension.has(tabId)) {
-    tabsClosedByExtension.delete(tabId);
-  }
-
-  tabCache.delete(tabId);
-});
 
 // ─── Alarms ──────────────────────────────────────────────────────────────────
 async function rescheduleAlarms() {
@@ -255,9 +192,7 @@ async function runStaleArchive() {
 
   await chrome.storage.local.set({ archiveList: archiveList.concat(entries) });
 
-  const tabIds = staleTabs.map((tab) => tab.id);
-  tabIds.forEach((id) => tabsClosedByExtension.add(id));
-  await chrome.tabs.remove(tabIds);
+  await chrome.tabs.remove(staleTabs.map((tab) => tab.id));
 }
 
 async function runArchivePurge() {
@@ -509,7 +444,6 @@ async function handleMessage(msg) {
       } catch (err) {
         return { ok: false, reason: "storage_full" };
       }
-      tabsClosedByExtension.add(tab.id);
       await chrome.tabs.remove(tab.id);
       return { ok: true };
     }
@@ -535,7 +469,6 @@ async function handleMessage(msg) {
       }
 
       const tabIds = saveable.map((tab) => tab.id);
-      tabIds.forEach((id) => tabsClosedByExtension.add(id));
       await chrome.tabs.remove(tabIds);
       return { ok: true, saved: tabIds.length, closed: tabIds.length };
     }
@@ -556,7 +489,6 @@ async function handleMessage(msg) {
 
       if (closeable.length === 0) return { ok: true, closed: 0 };
 
-      closeable.forEach((id) => tabsClosedByExtension.add(id));
       await chrome.tabs.remove(closeable);
       return { ok: true, closed: closeable.length };
     }

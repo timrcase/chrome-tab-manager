@@ -149,6 +149,35 @@
       </div>
     </div>
 
+    <!-- Raindrop settings -->
+    <div class="card">
+      <div class="card-title">Raindrop</div>
+
+      <div class="form-row">
+        <label class="form-label" for="raindropEnabled">
+          Save to Raindrop
+          <span class="form-sublabel">Queue saved tabs for Raindrop after the local save succeeds</span>
+        </label>
+        <div class="toggle-wrap">
+          <input type="checkbox" id="raindropEnabled" />
+          <label class="toggle-track" for="raindropEnabled"></label>
+        </div>
+      </div>
+
+      <div class="form-row form-row-wide" id="raindropTokenRow">
+        <label class="form-label" for="raindropToken">
+          API token
+          <span class="form-sublabel">Stored locally. Used only for Raindrop API calls.</span>
+        </label>
+        <div class="form-control">
+          <div class="text-input-wrap">
+            <input type="password" id="raindropToken" class="form-input"
+                   autocomplete="off" autocorrect="off" spellcheck="false" />
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Storage management -->
     <div class="card">
       <div class="card-title">Storage</div>

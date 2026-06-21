@@ -8,6 +8,8 @@ const DEFAULT_SETTINGS = {
   archiveEnabled: true,
   archivePurgeDays: 30,
   archiveStaleThresholdDays: 14,
+  raindropEnabled: false,
+  raindropToken: '',
 };
 
 const NUMBER_FIELDS = {
@@ -17,7 +19,7 @@ const NUMBER_FIELDS = {
   archiveStaleThresholdDays: { min: 0, max: 365 },
 };
 
-const TOGGLE_FIELDS = ['backupEnabled', 'backupIgnoreGroups', 'archiveEnabled'];
+const TOGGLE_FIELDS = ['backupEnabled', 'backupIgnoreGroups', 'archiveEnabled', 'raindropEnabled'];
 
 // ─── Load settings into form ──────────────────────────────────────────────────
 async function loadSettings() {
@@ -38,9 +40,12 @@ async function loadSettings() {
   document.getElementById('archiveEnabled').checked = s.archiveEnabled !== false;
   document.getElementById('archivePurgeDays').value = s.archivePurgeDays;
   document.getElementById('archiveStaleThresholdDays').value = s.archiveStaleThresholdDays;
+  document.getElementById('raindropEnabled').checked = s.raindropEnabled === true;
+  document.getElementById('raindropToken').value = s.raindropToken || '';
 
   updateBackupRowVisibility();
   updateArchiveRowVisibility();
+  updateRaindropRowVisibility();
 }
 
 function updateBackupRowVisibility() {
@@ -57,6 +62,12 @@ function updateArchiveRowVisibility() {
   document.getElementById('archivePurgeRow').style.opacity = enabled ? '1' : '0.4';
   document.getElementById('archiveStaleThresholdDays').disabled = !enabled;
   document.getElementById('archivePurgeDays').disabled = !enabled;
+}
+
+function updateRaindropRowVisibility() {
+  const enabled = document.getElementById('raindropEnabled').checked;
+  document.getElementById('raindropTokenRow').style.opacity = enabled ? '1' : '0.4';
+  document.getElementById('raindropToken').disabled = !enabled;
 }
 
 // ─── Autosave ─────────────────────────────────────────────────────────────────
@@ -132,8 +143,18 @@ function bindToggleField(key) {
   });
 }
 
+function bindTextField(key) {
+  const input = document.getElementById(key);
+  const wrap = input.closest('.text-input-wrap');
+  input.addEventListener('change', async () => {
+    await saveField(key, input.value.trim());
+    flashSaved(wrap);
+  });
+}
+
 Object.keys(NUMBER_FIELDS).forEach(bindNumberField);
 TOGGLE_FIELDS.forEach(bindToggleField);
+bindTextField('raindropToken');
 
 document.getElementById('defaultManagerPage').addEventListener('change', (e) => {
   saveField('defaultManagerPage', e.target.value);
@@ -145,10 +166,14 @@ document.getElementById('iconAction').addEventListener('change', (e) => {
 
 document.getElementById('backupEnabled').addEventListener('change', updateBackupRowVisibility);
 document.getElementById('archiveEnabled').addEventListener('change', updateArchiveRowVisibility);
+document.getElementById('raindropEnabled').addEventListener('change', updateRaindropRowVisibility);
 
 // ─── Storage management ───────────────────────────────────────────────────────
 document.getElementById('exportData').addEventListener('click', async () => {
   const data = await chrome.storage.local.get(['savedTabs', 'backupList', 'archiveList', 'settings']);
+  if (data.settings) {
+    data.settings = { ...data.settings, raindropToken: '' };
+  }
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -247,6 +272,15 @@ dropZone.addEventListener('drop', (e) => {
 
 confirmImportBtn.addEventListener('click', async () => {
   if (!pendingImport) return;
+  const current = await chrome.storage.local.get('settings');
+  const currentSettings = current.settings || {};
+  if (pendingImport.settings) {
+    pendingImport.settings = {
+      ...pendingImport.settings,
+      raindropEnabled: currentSettings.raindropEnabled === true,
+      raindropToken: currentSettings.raindropToken || '',
+    };
+  }
   await chrome.storage.local.set(pendingImport);
   importDialog.close();
   location.reload();

@@ -11,10 +11,12 @@ const DEFAULT_SETTINGS = {
   archiveStaleThresholdDays: 14,
   raindropEnabled: false,
   raindropToken: "",
+  raindropCollectionId: -1,
+  raindropCollectionTitle: "Unsorted",
 };
 
 const RAINDROP_SYNC_ALARM = "raindropSync";
-const RAINDROP_API_URL = "https://api.raindrop.io/rest/v1/raindrops";
+const RAINDROP_API_URL = "https://api.raindrop.io/rest/v1";
 
 let raindropSyncInFlight = false;
 
@@ -255,13 +257,35 @@ function hasRaindropConfig(settings) {
   );
 }
 
-function makeRaindropQueueEntry(tab) {
+function hasRaindropToken(settings) {
+  return (
+    typeof settings?.raindropToken === "string" &&
+    settings.raindropToken.trim() !== ""
+  );
+}
+
+function normalizeRaindropCollectionId(value) {
+  const id = parseInt(value, 10);
+  if (Number.isNaN(id)) return -1;
+  return id;
+}
+
+function raindropHeaders(settings) {
+  return {
+    Authorization: `Bearer ${settings.raindropToken.trim()}`,
+    "Content-Type": "application/json",
+  };
+}
+
+function makeRaindropQueueEntry(tab, settings) {
   return {
     id: crypto.randomUUID(),
+    action: "create",
     savedTabId: tab.id,
     link: tab.url,
     title: tab.title || tab.url,
     tags: Array.isArray(tab.tags) ? tab.tags : [],
+    collectionId: normalizeRaindropCollectionId(settings?.raindropCollectionId),
     queuedAt: Date.now(),
     attempts: 0,
     lastError: null,
@@ -273,15 +297,183 @@ function toRaindropItem(entry) {
     link: entry.link,
     title: entry.title,
     tags: Array.isArray(entry.tags) ? entry.tags : [],
-    collection: { $id: -1 },
+    collection: { $id: normalizeRaindropCollectionId(entry.collectionId) },
     pleaseParse: {},
   };
+}
+
+function getRaindropCreateBatch(queue) {
+  const batch = [];
+  for (const entry of queue) {
+    if ((entry.action || "create") !== "create") break;
+    batch.push(entry);
+    if (batch.length === 100) break;
+  }
+  return batch;
+}
+
+function sameTags(a, b) {
+  const left = Array.isArray(a) ? a : [];
+  const right = Array.isArray(b) ? b : [];
+  return (
+    left.length === right.length &&
+    left.every((tag, index) => tag === right[index])
+  );
+}
+
+function makeRaindropTagUpdateQueueEntry(tab) {
+  return {
+    id: crypto.randomUUID(),
+    action: "updateTags",
+    savedTabId: tab.id,
+    raindropId: tab.raindropId,
+    tags: Array.isArray(tab.tags) ? tab.tags : [],
+    queuedAt: Date.now(),
+    attempts: 0,
+    lastError: null,
+  };
+}
+
+async function markRaindropSynced(batch, items) {
+  const { savedTabs = [] } = await chrome.storage.local.get("savedTabs");
+  if (savedTabs.length === 0) return;
+
+  const syncedAt = Date.now();
+  const syncedBySavedTabId = new Map(
+    batch.map((entry, index) => [
+      entry.savedTabId,
+      {
+        createTags: Array.isArray(entry.tags) ? entry.tags : [],
+        raindropId: items?.[index]?._id || items?.[index]?.id || null,
+        raindropSyncedAt: syncedAt,
+      },
+    ]),
+  );
+
+  let changed = false;
+  const followUpTagUpdates = [];
+  const updated = savedTabs.map((tab) => {
+    const sync = syncedBySavedTabId.get(tab.id);
+    if (!sync) return tab;
+    changed = true;
+
+    const syncedTab = {
+      ...tab,
+      raindropId: sync.raindropId,
+      raindropSyncedAt: sync.raindropSyncedAt,
+    };
+    if (sync.raindropId && !sameTags(tab.tags, sync.createTags)) {
+      followUpTagUpdates.push(makeRaindropTagUpdateQueueEntry(syncedTab));
+    }
+    return syncedTab;
+  });
+
+  if (changed) {
+    await chrome.storage.local.set({ savedTabs: updated });
+  }
+  if (followUpTagUpdates.length) {
+    const { raindropQueue = [] } =
+      await chrome.storage.local.get("raindropQueue");
+    await chrome.storage.local.set({
+      raindropQueue: raindropQueue.concat(followUpTagUpdates),
+    });
+  }
+}
+
+async function markRaindropTagSynced(entry) {
+  const { savedTabs = [] } = await chrome.storage.local.get("savedTabs");
+  let changed = false;
+  const updated = savedTabs.map((tab) => {
+    if (tab.id !== entry.savedTabId) return tab;
+    changed = true;
+    return {
+      ...tab,
+      raindropSyncedAt: Date.now(),
+    };
+  });
+
+  if (changed) {
+    await chrome.storage.local.set({ savedTabs: updated });
+  }
+}
+
+async function queueRaindropTagSync(tab, settings) {
+  if (!hasRaindropConfig(settings)) return;
+
+  try {
+    const { raindropQueue = [] } =
+      await chrome.storage.local.get("raindropQueue");
+    const tags = Array.isArray(tab.tags) ? tab.tags : [];
+
+    if (tab.raindropId) {
+      await chrome.storage.local.set({
+        raindropQueue: raindropQueue.concat(makeRaindropTagUpdateQueueEntry(tab)),
+      });
+      kickRaindropSync();
+      return;
+    }
+
+    let changed = false;
+    const updated = raindropQueue.map((entry) => {
+      const action = entry.action || "create";
+      if (action !== "create" || entry.savedTabId !== tab.id) return entry;
+      changed = true;
+      return { ...entry, tags };
+    });
+
+    if (changed) {
+      await chrome.storage.local.set({ raindropQueue: updated });
+      kickRaindropSync();
+    }
+  } catch (err) {
+    console.warn("Raindrop tag sync queue failed:", err.message);
+  }
 }
 
 function kickRaindropSync() {
   processRaindropQueue().catch((err) => {
     console.warn("Raindrop sync launcher failed:", err.message);
   });
+}
+
+async function syncRaindropCreates(batch, settings) {
+  const res = await fetch(`${RAINDROP_API_URL}/raindrops`, {
+    method: "POST",
+    headers: raindropHeaders(settings),
+    body: JSON.stringify({ items: batch.map(toRaindropItem) }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  const json = await res.json().catch(() => ({ result: true }));
+  if (json.result === false) {
+    throw new Error(json.errorMessage || "Raindrop rejected the batch");
+  }
+
+  await markRaindropSynced(batch, json.items || []);
+}
+
+async function syncRaindropTagUpdate(entry, settings) {
+  const res = await fetch(`${RAINDROP_API_URL}/raindrop/${entry.raindropId}`, {
+    method: "PUT",
+    headers: raindropHeaders(settings),
+    body: JSON.stringify({
+      tags: Array.isArray(entry.tags) ? entry.tags : [],
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  const json = await res.json().catch(() => ({ result: true }));
+  if (json.result === false) {
+    throw new Error(json.errorMessage || "Raindrop rejected the tag update");
+  }
+
+  await markRaindropTagSynced(entry);
 }
 
 async function queueRaindropEntries(entries, settings) {
@@ -291,7 +483,9 @@ async function queueRaindropEntries(entries, settings) {
     const { raindropQueue = [] } =
       await chrome.storage.local.get("raindropQueue");
     await chrome.storage.local.set({
-      raindropQueue: raindropQueue.concat(entries.map(makeRaindropQueueEntry)),
+      raindropQueue: raindropQueue.concat(
+        entries.map((entry) => makeRaindropQueueEntry(entry, settings)),
+      ),
     });
     kickRaindropSync();
   } catch (err) {
@@ -310,23 +504,16 @@ async function processRaindropQueue() {
 
       if (!hasRaindropConfig(settings) || raindropQueue.length === 0) return;
 
-      const batch = raindropQueue.slice(0, 100);
-      const res = await fetch(RAINDROP_API_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${settings.raindropToken.trim()}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ items: batch.map(toRaindropItem) }),
-      });
+      const first = raindropQueue[0];
+      const action = first.action || "create";
+      const batch = action === "create" ? getRaindropCreateBatch(raindropQueue) : [first];
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      const json = await res.json().catch(() => ({ result: true }));
-      if (json.result === false) {
-        throw new Error(json.errorMessage || "Raindrop rejected the batch");
+      if (action === "create") {
+        await syncRaindropCreates(batch, settings);
+      } else if (action === "updateTags") {
+        await syncRaindropTagUpdate(first, settings);
+      } else {
+        throw new Error(`Unknown Raindrop queue action: ${action}`);
       }
 
       const syncedIds = new Set(batch.map((entry) => entry.id));
@@ -340,8 +527,11 @@ async function processRaindropQueue() {
     const message = err.message || "Raindrop sync failed";
     const { raindropQueue = [] } =
       await chrome.storage.local.get("raindropQueue");
+    const firstAction = raindropQueue[0]?.action || "create";
     const failedIds = new Set(
-      raindropQueue.slice(0, 100).map((entry) => entry.id),
+      firstAction === "create"
+        ? getRaindropCreateBatch(raindropQueue).map((entry) => entry.id)
+        : raindropQueue.slice(0, 1).map((entry) => entry.id),
     );
     const updated = raindropQueue.map((entry) => {
       if (!failedIds.has(entry.id)) return entry;
@@ -384,11 +574,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 async function handleMessage(msg) {
   switch (msg.action) {
     case "updateSavedTab": {
-      const { savedTabs = [] } = await chrome.storage.local.get("savedTabs");
+      const { savedTabs = [], settings = DEFAULT_SETTINGS } =
+        await chrome.storage.local.get(["savedTabs", "settings"]);
       const idx = savedTabs.findIndex((t) => t.id === msg.id);
       if (idx === -1) return { ok: false };
       savedTabs[idx] = { ...savedTabs[idx], ...msg.patch };
       await chrome.storage.local.set({ savedTabs });
+      if (Object.prototype.hasOwnProperty.call(msg.patch || {}, "tags")) {
+        await queueRaindropTagSync(savedTabs[idx], settings);
+      }
       return { ok: true };
     }
 
@@ -549,12 +743,107 @@ async function handleMessage(msg) {
         raindropEnabled: Boolean(s.raindropEnabled),
         raindropToken:
           typeof s.raindropToken === "string" ? s.raindropToken.trim() : "",
+        raindropCollectionId: normalizeRaindropCollectionId(
+          s.raindropCollectionId,
+        ),
+        raindropCollectionTitle:
+          typeof s.raindropCollectionTitle === "string" &&
+          s.raindropCollectionTitle.trim()
+            ? s.raindropCollectionTitle.trim()
+            : DEFAULT_SETTINGS.raindropCollectionTitle,
       };
       await chrome.storage.local.set({ settings: validated });
       await rescheduleAlarms();
       await applyIconAction(validated.iconAction);
       if (hasRaindropConfig(validated)) kickRaindropSync();
       return { ok: true };
+    }
+
+    case "getRaindropCollections": {
+      const { settings = DEFAULT_SETTINGS } =
+        await chrome.storage.local.get("settings");
+      if (!hasRaindropToken(settings)) {
+        return { ok: false, error: "Missing Raindrop token" };
+      }
+
+      const [rootRes, childRes] = await Promise.all([
+        fetch(`${RAINDROP_API_URL}/collections`, {
+          headers: raindropHeaders(settings),
+        }),
+        fetch(`${RAINDROP_API_URL}/collections/childrens`, {
+          headers: raindropHeaders(settings),
+        }),
+      ]);
+
+      if (!rootRes.ok) return { ok: false, error: `HTTP ${rootRes.status}` };
+      if (!childRes.ok) return { ok: false, error: `HTTP ${childRes.status}` };
+
+      const rootJson = await rootRes.json();
+      const childJson = await childRes.json();
+      if (rootJson.result === false) {
+        return { ok: false, error: rootJson.errorMessage || "Raindrop failed" };
+      }
+      if (childJson.result === false) {
+        return { ok: false, error: childJson.errorMessage || "Raindrop failed" };
+      }
+
+      const byId = new Map();
+      [...(rootJson.items || []), ...(childJson.items || [])].forEach(
+        (collection) => {
+          if (!collection?._id) return;
+          const existing = byId.get(collection._id);
+          const parentId = collection.parent?.$id ?? existing?.parentId ?? null;
+          byId.set(collection._id, {
+            id: collection._id,
+            title: collection.title || existing?.title || "Untitled",
+            parentId,
+          });
+        },
+      );
+
+      return {
+        ok: true,
+        collections: [...byId.values()],
+      };
+    }
+
+    case "createRaindropCollection": {
+      const title = typeof msg.title === "string" ? msg.title.trim() : "";
+      if (!title) return { ok: false, error: "Collection name required" };
+
+      const { settings = DEFAULT_SETTINGS } =
+        await chrome.storage.local.get("settings");
+      if (!hasRaindropToken(settings)) {
+        return { ok: false, error: "Missing Raindrop token" };
+      }
+
+      const res = await fetch(`${RAINDROP_API_URL}/collection`, {
+        method: "POST",
+        headers: raindropHeaders(settings),
+        body: JSON.stringify({ title, public: false }),
+      });
+      if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+
+      const json = await res.json();
+      if (json.result === false || !json.item?._id) {
+        return {
+          ok: false,
+          error: json.errorMessage || "Raindrop failed to create collection",
+        };
+      }
+
+      const collection = {
+        id: json.item._id,
+        title: json.item.title || title,
+        parentId: json.item.parent?.$id ?? null,
+      };
+      const updatedSettings = {
+        ...settings,
+        raindropCollectionId: collection.id,
+        raindropCollectionTitle: collection.title,
+      };
+      await chrome.storage.local.set({ settings: updatedSettings });
+      return { ok: true, collection };
     }
 
     case "runBackupNow": {

@@ -188,20 +188,47 @@ function renderSaved() {
     const refNode = container.children[i] || null;
     if (existing) {
       if (existing !== refNode) container.insertBefore(existing, refNode);
+      updateRaindropStatus(existing, tab);
     } else {
       container.insertBefore(makeSavedCard(tab), refNode);
     }
   });
 }
 
+function makeRaindropStatus(tab) {
+  if (!tab.raindropSyncedAt) return null;
+
+  const indicator = document.createElement('span');
+  indicator.className = 'raindrop-status';
+  indicator.title = `Synced to Raindrop ${formatDate(tab.raindropSyncedAt)}`;
+  indicator.setAttribute('aria-label', 'Synced to Raindrop');
+  indicator.appendChild(makeIcon('raindrop'));
+  return indicator;
+}
+
+function updateRaindropStatus(card, tab) {
+  const value = String(tab.raindropSyncedAt || '');
+  if (card.dataset.raindropSyncedAt === value) return;
+
+  card.dataset.raindropSyncedAt = value;
+  const existing = card.querySelector('.raindrop-status');
+  const next = makeRaindropStatus(tab);
+  if (existing && next) existing.replaceWith(next);
+  else if (existing) existing.remove();
+  else if (next) card.querySelector('.item-main')?.prepend(next);
+}
+
 function makeSavedCard(tab) {
   const card = document.createElement('div');
   card.className = 'item-card';
   card.dataset.id = tab.id;
+  card.dataset.raindropSyncedAt = String(tab.raindropSyncedAt || '');
 
   const main = document.createElement('div');
   main.className = 'item-main';
 
+  const raindropStatus = makeRaindropStatus(tab);
+  if (raindropStatus) main.appendChild(raindropStatus);
   main.appendChild(makeFavicon(tab.favIconUrl, tab.title));
 
   const info = document.createElement('div');

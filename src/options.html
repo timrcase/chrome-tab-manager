@@ -176,6 +176,23 @@
           </div>
         </div>
       </div>
+
+      <div class="form-row form-row-wide" id="raindropCollectionRow">
+        <label class="form-label" for="chooseRaindropCollection">
+          Collection
+          <span class="form-sublabel">Saved tabs go to Unsorted until you choose a collection.</span>
+        </label>
+        <div class="form-control">
+          <div class="raindrop-selected">
+            <div class="raindrop-selected-meta">
+              <span class="raindrop-selected-label">Destination</span>
+              <span class="raindrop-selected-title" id="raindropCollectionTitle">Unsorted</span>
+            </div>
+            <button class="btn btn-secondary" id="chooseRaindropCollection" type="button">Choose…</button>
+          </div>
+          <div class="form-error" id="raindropCollectionError"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Storage management -->
@@ -210,6 +227,36 @@
     </div>
 
   </div>
+
+  <!-- Raindrop collection modal -->
+  <dialog class="modal raindrop-modal" id="raindropCollectionDialog">
+    <div class="modal-header">
+      <span class="modal-title">Choose Raindrop collection</span>
+      <button class="modal-close" id="closeRaindropCollection" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="raindrop-picker-topline">
+        <span id="raindropCollectionStatus">Select a destination for new saved tabs.</span>
+        <button class="btn btn-secondary btn-sm" id="refreshRaindropCollections" type="button">Refresh</button>
+      </div>
+      <div class="raindrop-tree" id="raindropCollectionTree"></div>
+      <div class="modal-error" id="raindropCollectionModalError" hidden></div>
+
+      <div class="raindrop-create-panel" id="raindropCreateRow" hidden>
+        <div class="text-input-wrap">
+          <input type="text" id="raindropNewCollectionName" class="form-input"
+                 placeholder="Collection name" maxlength="80"
+                 autocomplete="off" autocorrect="off" spellcheck="false" />
+        </div>
+        <button class="btn btn-primary btn-sm" id="createRaindropCollection" type="button">Create</button>
+        <button class="btn btn-ghost btn-sm" id="cancelCreateRaindropCollection" type="button">Cancel</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="showCreateRaindropCollection" type="button">Create new collection</button>
+      <button class="btn btn-primary" id="doneRaindropCollection" type="button">Done</button>
+    </div>
+  </dialog>
 
   <!-- Import modal -->
   <dialog class="modal" id="importDialog">

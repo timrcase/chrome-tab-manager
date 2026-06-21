@@ -400,6 +400,138 @@ input[type="checkbox"]:focus-visible + .toggle-track {
   white-space: nowrap;
 }
 
+.raindrop-selected {
+  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  display: flex;
+  justify-content: space-between;
+  min-height: 38px;
+  padding: 6px 6px 6px 10px;
+}
+
+.raindrop-selected-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.raindrop-selected-label {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.raindrop-selected-title {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.raindrop-modal {
+  max-width: 560px;
+}
+
+.raindrop-picker-topline {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  font-size: 12px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.raindrop-tree {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 4px;
+}
+
+.raindrop-tree-row {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  font-size: 13px;
+  gap: 7px;
+  min-height: 30px;
+  padding: 5px 8px 5px calc(8px + var(--depth, 0) * 24px);
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+  width: 100%;
+}
+
+.raindrop-tree-row:hover,
+.raindrop-tree-row:focus-visible {
+  background: var(--surface-1);
+  border-color: var(--accent-dim);
+  outline: none;
+}
+
+.raindrop-tree-row.selected {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.raindrop-tree-prefix {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-size: 14px;
+  width: 18px;
+  white-space: pre;
+}
+
+.raindrop-tree-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.raindrop-tree-meta {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+.raindrop-tree-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 14px 10px;
+}
+
+.raindrop-create-panel {
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.raindrop-create-panel[hidden] { display: none; }
+
+.raindrop-create-panel .text-input-wrap {
+  flex: 1;
+}
+
+.raindrop-create-panel .btn,
+.raindrop-selected .btn,
+.raindrop-picker-topline .btn {
+  flex-shrink: 0;
+}
+
 @media (max-width: 560px) {
   .form-row,
   .form-row-wide {
@@ -410,6 +542,13 @@ input[type="checkbox"]:focus-visible + .toggle-track {
   .form-row .toggle-wrap {
     justify-content: flex-start;
     padding-top: 0;
+  }
+
+  .raindrop-selected,
+  .raindrop-picker-topline,
+  .raindrop-create-panel {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 

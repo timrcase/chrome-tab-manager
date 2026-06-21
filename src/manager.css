@@ -299,6 +299,21 @@ body {
   flex-shrink: 0;
 }
 
+.raindrop-status {
+  align-items: center;
+  color: var(--accent);
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  margin-right: -4px;
+  width: 16px;
+}
+
+.raindrop-status .ui-icon {
+  height: 15px;
+  width: 15px;
+}
+
 
 /* ─── Inline tag editor (saved cards) ──────────────────────────────────────── */
 .saved-tags {

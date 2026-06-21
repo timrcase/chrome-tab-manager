@@ -15,9 +15,9 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Create zip
-        run: cd src && zip -r -9 ../tab-manager.zip .
+        run: cd src && zip -r -9 ../${{ github.event.repository.name }}.zip .
 
       - name: Create release and attach zip
         uses: softprops/action-gh-release@v2
         with:
-          files: tab-manager.zip
+          files: ${{ github.event.repository.name }}.zip

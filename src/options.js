@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS = {
   raindropToken: '',
   raindropCollectionId: -1,
   raindropCollectionTitle: 'Unsorted',
+  raindropDeleteSync: false,
 };
 
 const NUMBER_FIELDS = {
@@ -21,7 +22,7 @@ const NUMBER_FIELDS = {
   archiveStaleThresholdDays: { min: 0, max: 365 },
 };
 
-const TOGGLE_FIELDS = ['backupEnabled', 'backupIgnoreGroups', 'archiveEnabled', 'raindropEnabled'];
+const TOGGLE_FIELDS = ['backupEnabled', 'backupIgnoreGroups', 'archiveEnabled', 'raindropEnabled', 'raindropDeleteSync'];
 
 let raindropCollectionsLoaded = false;
 let raindropCollections = [];
@@ -47,6 +48,7 @@ async function loadSettings() {
   document.getElementById('archiveStaleThresholdDays').value = s.archiveStaleThresholdDays;
   document.getElementById('raindropEnabled').checked = s.raindropEnabled === true;
   document.getElementById('raindropToken').value = s.raindropToken || '';
+  document.getElementById('raindropDeleteSync').checked = s.raindropDeleteSync === true;
   renderRaindropSelection(s.raindropCollectionTitle || 'Unsorted');
 
   updateBackupRowVisibility();
@@ -79,6 +81,8 @@ function updateRaindropRowVisibility() {
   document.getElementById('chooseRaindropCollection').disabled = !enabled || !hasToken;
   document.getElementById('refreshRaindropCollections').disabled = !enabled || !hasToken;
   document.getElementById('showCreateRaindropCollection').disabled = !enabled || !hasToken;
+  document.getElementById('raindropDeleteSyncRow').style.opacity = enabled ? '1' : '0.4';
+  document.getElementById('raindropDeleteSync').disabled = !enabled;
 }
 
 // ─── Autosave ─────────────────────────────────────────────────────────────────
@@ -520,6 +524,7 @@ confirmImportBtn.addEventListener('click', async () => {
       raindropToken: currentSettings.raindropToken || '',
       raindropCollectionId: currentSettings.raindropCollectionId ?? -1,
       raindropCollectionTitle: currentSettings.raindropCollectionTitle || 'Unsorted',
+      raindropDeleteSync: currentSettings.raindropDeleteSync === true,
     };
   }
   await chrome.storage.local.set(pendingImport);

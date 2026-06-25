@@ -3,9 +3,12 @@ let state = {
   savedTabs: [],
   backupList: [],
   archiveList: [],
+  raindropQueue: [],
   settings: {},
   activeTags: new Set(),
 };
+
+const RAINDROP_MAX_ATTEMPTS = 3;
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
 function send(msg) {
@@ -83,10 +86,11 @@ function escapeHtml(str) {
 
 // ─── Data loading ─────────────────────────────────────────────────────────────
 async function loadAll() {
-  const data = await chrome.storage.local.get(['savedTabs', 'backupList', 'archiveList', 'settings']);
+  const data = await chrome.storage.local.get(['savedTabs', 'backupList', 'archiveList', 'raindropQueue', 'settings']);
   state.savedTabs = data.savedTabs || [];
   state.backupList = data.backupList || [];
   state.archiveList = data.archiveList || [];
+  state.raindropQueue = data.raindropQueue || [];
   state.settings = data.settings || {};
   render();
   const validPages = ['saved', 'open', 'backup', 'archive'];
@@ -101,6 +105,7 @@ async function loadAll() {
 // ─── Render ───────────────────────────────────────────────────────────────────
 function render() {
   renderCounts();
+  renderSavedSyncButton();
   renderSaved();
   renderBackup();
   renderArchive();
@@ -124,6 +129,25 @@ function filterSaved() {
   return state.savedTabs.filter((tab) =>
     [...state.activeTags].every((tag) => (tab.tags || []).includes(tag))
   );
+}
+
+function getRaindropQueueEntry(tab) {
+  return state.raindropQueue.find((entry) => entry.savedTabId === tab.id);
+}
+
+function renderSavedSyncButton() {
+  const btn = document.getElementById('syncSavedToRaindrop');
+  const raindropReady = state.settings.raindropEnabled === true && state.settings.raindropToken;
+  const unsyncedCount = state.savedTabs.filter((tab) => !tab.raindropSyncedAt).length;
+
+  btn.hidden = !raindropReady;
+  btn.disabled = !raindropReady || unsyncedCount === 0;
+  btn.textContent = unsyncedCount > 0
+    ? `Sync ${unsyncedCount} to Raindrop`
+    : 'Synced to Raindrop';
+  btn.title = unsyncedCount > 0
+    ? 'Queue unsynced saved tabs for Raindrop'
+    : 'All saved tabs are synced to Raindrop';
 }
 
 function renderTagFilters() {
@@ -196,18 +220,32 @@ function renderSaved() {
 }
 
 function makeRaindropStatus(tab) {
-  if (!tab.raindropSyncedAt) return null;
+  const queued = getRaindropQueueEntry(tab);
+  const failed = queued?.lastError && (queued.attempts || 0) >= RAINDROP_MAX_ATTEMPTS;
+
+  if (!failed && !tab.raindropSyncedAt) return null;
 
   const indicator = document.createElement('span');
-  indicator.className = 'raindrop-status';
-  indicator.title = `Synced to Raindrop ${formatDate(tab.raindropSyncedAt)}`;
-  indicator.setAttribute('aria-label', 'Synced to Raindrop');
-  indicator.appendChild(makeIcon('raindrop'));
+  indicator.className = `raindrop-status ${failed ? 'raindrop-status-failed' : ''}`;
+  if (failed) {
+    indicator.title = `Raindrop sync failed: ${queued.lastError}`;
+    indicator.setAttribute('aria-label', 'Raindrop sync failed');
+    indicator.appendChild(makeIcon('warning'));
+  } else {
+    indicator.title = `Synced to Raindrop ${formatDate(tab.raindropSyncedAt)}`;
+    indicator.setAttribute('aria-label', 'Synced to Raindrop');
+    indicator.appendChild(makeIcon('raindrop'));
+  }
   return indicator;
 }
 
 function updateRaindropStatus(card, tab) {
-  const value = String(tab.raindropSyncedAt || '');
+  const queued = getRaindropQueueEntry(tab);
+  const value = [
+    tab.raindropSyncedAt || '',
+    queued?.attempts || '',
+    queued?.lastError || '',
+  ].join('|');
   if (card.dataset.raindropSyncedAt === value) return;
 
   card.dataset.raindropSyncedAt = value;
@@ -892,12 +930,44 @@ document.getElementById('clearArchive').addEventListener('click', async () => {
   render();
 });
 
-document.getElementById('clearSavedTabs').addEventListener('click', async () => {
-  if (!confirm('Clear all saved tabs? This cannot be undone.')) return;
-  await send({ action: 'clearSavedTabs' });
+const clearSavedDialog = document.getElementById('clearSavedDialog');
+
+document.getElementById('clearSavedTabs').addEventListener('click', () => {
+  const raindropReady = state.settings.raindropEnabled === true && state.settings.raindropToken;
+  const row = document.getElementById('clearSavedRaindropRow');
+  const checkbox = document.getElementById('clearSavedRaindrop');
+  row.hidden = !raindropReady;
+  checkbox.checked = raindropReady && state.settings.raindropDeleteSync === true;
+  clearSavedDialog.showModal();
+});
+
+document.getElementById('clearSavedCancel').addEventListener('click', () => clearSavedDialog.close());
+document.getElementById('clearSavedClose').addEventListener('click', () => clearSavedDialog.close());
+
+document.getElementById('clearSavedConfirm').addEventListener('click', async () => {
+  const row = document.getElementById('clearSavedRaindropRow');
+  const deleteFromRaindrop = !row.hidden && document.getElementById('clearSavedRaindrop').checked;
+  clearSavedDialog.close();
+  await send({ action: 'clearSavedTabs', deleteFromRaindrop });
   state.savedTabs = [];
   state.activeTags.clear();
   render();
+});
+
+document.getElementById('syncSavedToRaindrop').addEventListener('click', async () => {
+  const btn = document.getElementById('syncSavedToRaindrop');
+  btn.disabled = true;
+  btn.textContent = 'Queueing…';
+  const res = await send({ action: 'syncSavedTabsToRaindrop' });
+  if (res?.ok) {
+    btn.textContent = res.queued ? `Queued ${res.queued}` : 'Sync queued';
+  } else {
+    btn.textContent = 'Sync failed';
+    btn.title = res?.reason === 'not_configured'
+      ? 'Enable Raindrop and add a token in Options'
+      : 'Could not queue Raindrop sync';
+  }
+  setTimeout(renderSavedSyncButton, 900);
 });
 
 document.getElementById('clearBackupList').addEventListener('click', async () => {
@@ -982,6 +1052,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (changes.savedTabs) { state.savedTabs = changes.savedTabs.newValue || []; changed = true; }
   if (changes.backupList) { state.backupList = changes.backupList.newValue || []; changed = true; }
   if (changes.archiveList) { state.archiveList = changes.archiveList.newValue || []; changed = true; }
+  if (changes.raindropQueue) { state.raindropQueue = changes.raindropQueue.newValue || []; changed = true; }
   if (changes.settings) { state.settings = changes.settings.newValue || {}; changed = true; }
   if (changed) render();
 });

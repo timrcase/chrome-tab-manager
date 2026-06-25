@@ -13,10 +13,12 @@ const DEFAULT_SETTINGS = {
   raindropToken: "",
   raindropCollectionId: -1,
   raindropCollectionTitle: "Unsorted",
+  raindropDeleteSync: false,
 };
 
 const RAINDROP_SYNC_ALARM = "raindropSync";
 const RAINDROP_API_URL = "https://api.raindrop.io/rest/v1";
+const RAINDROP_MAX_ATTEMPTS = 3;
 
 let raindropSyncInFlight = false;
 
@@ -277,6 +279,20 @@ function raindropHeaders(settings) {
   };
 }
 
+function raindropHttpError(status) {
+  const err = new Error(`HTTP ${status}`);
+  err.status = status;
+  return err;
+}
+
+function isRaindropAuthError(err) {
+  return err?.status === 401 || err?.status === 403;
+}
+
+function isRaindropQueueBlocked(entry) {
+  return (entry.attempts || 0) >= RAINDROP_MAX_ATTEMPTS;
+}
+
 function makeRaindropQueueEntry(tab, settings) {
   return {
     id: crypto.randomUUID(),
@@ -328,6 +344,18 @@ function makeRaindropTagUpdateQueueEntry(tab) {
     savedTabId: tab.id,
     raindropId: tab.raindropId,
     tags: Array.isArray(tab.tags) ? tab.tags : [],
+    queuedAt: Date.now(),
+    attempts: 0,
+    lastError: null,
+  };
+}
+
+function makeRaindropDeleteQueueEntry(tab) {
+  return {
+    id: crypto.randomUUID(),
+    action: "delete",
+    savedTabId: tab.id,
+    raindropId: tab.raindropId,
     queuedAt: Date.now(),
     attempts: 0,
     lastError: null,
@@ -430,6 +458,32 @@ async function queueRaindropTagSync(tab, settings) {
   }
 }
 
+async function queueRaindropDelete(tab, settings) {
+  if (!hasRaindropConfig(settings) || settings.raindropDeleteSync !== true) return;
+
+  try {
+    const { raindropQueue = [] } =
+      await chrome.storage.local.get("raindropQueue");
+
+    // Drop any pending create/updateTags work for this tab — it's gone now.
+    const remaining = raindropQueue.filter(
+      (entry) => entry.savedTabId !== tab.id,
+    );
+
+    // Only delete remotely if it was actually synced to Raindrop.
+    if (tab.raindropId) {
+      remaining.push(makeRaindropDeleteQueueEntry(tab));
+    }
+
+    if (remaining.length !== raindropQueue.length || tab.raindropId) {
+      await chrome.storage.local.set({ raindropQueue: remaining });
+      kickRaindropSync();
+    }
+  } catch (err) {
+    console.warn("Raindrop delete queue failed:", err.message);
+  }
+}
+
 function kickRaindropSync() {
   processRaindropQueue().catch((err) => {
     console.warn("Raindrop sync launcher failed:", err.message);
@@ -444,7 +498,7 @@ async function syncRaindropCreates(batch, settings) {
   });
 
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
+    throw raindropHttpError(res.status);
   }
 
   const json = await res.json().catch(() => ({ result: true }));
@@ -465,7 +519,7 @@ async function syncRaindropTagUpdate(entry, settings) {
   });
 
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
+    throw raindropHttpError(res.status);
   }
 
   const json = await res.json().catch(() => ({ result: true }));
@@ -474,6 +528,23 @@ async function syncRaindropTagUpdate(entry, settings) {
   }
 
   await markRaindropTagSynced(entry);
+}
+
+async function syncRaindropDelete(entry, settings) {
+  const res = await fetch(`${RAINDROP_API_URL}/raindrop/${entry.raindropId}`, {
+    method: "DELETE",
+    headers: raindropHeaders(settings),
+  });
+
+  // A 404 means the bookmark is already gone — treat as success.
+  if (!res.ok && res.status !== 404) {
+    throw raindropHttpError(res.status);
+  }
+
+  const json = await res.json().catch(() => ({ result: true }));
+  if (json.result === false && res.status !== 404) {
+    throw new Error(json.errorMessage || "Raindrop rejected the delete");
+  }
 }
 
 async function queueRaindropEntries(entries, settings) {
@@ -493,6 +564,46 @@ async function queueRaindropEntries(entries, settings) {
   }
 }
 
+async function removeRaindropQueueEntries(ids) {
+  const idSet = new Set(ids);
+  const latest = await chrome.storage.local.get("raindropQueue");
+  const remaining = (latest.raindropQueue || []).filter(
+    (entry) => !idSet.has(entry.id),
+  );
+  await chrome.storage.local.set({ raindropQueue: remaining });
+}
+
+async function markRaindropQueueFailure(ids, message, block = false) {
+  const idSet = new Set(ids);
+  const { raindropQueue = [] } =
+    await chrome.storage.local.get("raindropQueue");
+  const updated = raindropQueue.map((entry) => {
+    if (!idSet.has(entry.id)) return entry;
+    return {
+      ...entry,
+      attempts: block
+        ? RAINDROP_MAX_ATTEMPTS
+        : (entry.attempts || 0) + 1,
+      lastError: message,
+      lastAttemptAt: Date.now(),
+    };
+  });
+  await chrome.storage.local.set({ raindropQueue: updated });
+}
+
+async function syncRaindropCreatesIndividually(batch, settings) {
+  for (const entry of batch) {
+    try {
+      await syncRaindropCreates([entry], settings);
+      await removeRaindropQueueEntries([entry.id]);
+    } catch (err) {
+      const message = err.message || "Raindrop sync failed";
+      await markRaindropQueueFailure([entry.id], message, !isRaindropAuthError(err));
+      if (isRaindropAuthError(err)) throw err;
+    }
+  }
+}
+
 async function processRaindropQueue() {
   if (raindropSyncInFlight) return;
   raindropSyncInFlight = true;
@@ -504,46 +615,42 @@ async function processRaindropQueue() {
 
       if (!hasRaindropConfig(settings) || raindropQueue.length === 0) return;
 
-      const first = raindropQueue[0];
-      const action = first.action || "create";
-      const batch = action === "create" ? getRaindropCreateBatch(raindropQueue) : [first];
-
-      if (action === "create") {
-        await syncRaindropCreates(batch, settings);
-      } else if (action === "updateTags") {
-        await syncRaindropTagUpdate(first, settings);
-      } else {
-        throw new Error(`Unknown Raindrop queue action: ${action}`);
-      }
-
-      const syncedIds = new Set(batch.map((entry) => entry.id));
-      const latest = await chrome.storage.local.get("raindropQueue");
-      const remaining = (latest.raindropQueue || []).filter(
-        (entry) => !syncedIds.has(entry.id),
+      const activeQueue = raindropQueue.filter(
+        (entry) => !isRaindropQueueBlocked(entry),
       );
-      await chrome.storage.local.set({ raindropQueue: remaining });
+      if (activeQueue.length === 0) return;
+
+      const first = activeQueue[0];
+      const action = first.action || "create";
+      const batch = action === "create" ? getRaindropCreateBatch(activeQueue) : [first];
+
+      try {
+        if (action === "create") {
+          await syncRaindropCreates(batch, settings);
+        } else if (action === "updateTags") {
+          await syncRaindropTagUpdate(first, settings);
+        } else if (action === "delete") {
+          await syncRaindropDelete(first, settings);
+        } else {
+          throw new Error(`Unknown Raindrop queue action: ${action}`);
+        }
+
+        await removeRaindropQueueEntries(batch.map((entry) => entry.id));
+      } catch (err) {
+        if (action === "create" && batch.length > 1 && !isRaindropAuthError(err)) {
+          await syncRaindropCreatesIndividually(batch, settings);
+          continue;
+        }
+        await markRaindropQueueFailure(
+          batch.map((entry) => entry.id),
+          err.message || "Raindrop sync failed",
+        );
+        console.warn("Raindrop sync failed:", err.message);
+        return;
+      }
     }
   } catch (err) {
-    const message = err.message || "Raindrop sync failed";
-    const { raindropQueue = [] } =
-      await chrome.storage.local.get("raindropQueue");
-    const firstAction = raindropQueue[0]?.action || "create";
-    const failedIds = new Set(
-      firstAction === "create"
-        ? getRaindropCreateBatch(raindropQueue).map((entry) => entry.id)
-        : raindropQueue.slice(0, 1).map((entry) => entry.id),
-    );
-    const updated = raindropQueue.map((entry) => {
-      if (!failedIds.has(entry.id)) return entry;
-      return {
-        ...entry,
-        attempts: (entry.attempts || 0) + 1,
-        lastError: message,
-        lastAttemptAt: Date.now(),
-      };
-    });
-    await chrome.storage.local.set({ raindropQueue: updated });
-    console.warn("Raindrop sync failed:", message);
+    console.warn("Raindrop sync failed:", err.message || "Raindrop sync failed");
   } finally {
     raindropSyncInFlight = false;
   }
@@ -587,9 +694,14 @@ async function handleMessage(msg) {
     }
 
     case "deleteSavedTab": {
-      const { savedTabs = [] } = await chrome.storage.local.get("savedTabs");
+      const { savedTabs = [], settings = DEFAULT_SETTINGS } =
+        await chrome.storage.local.get(["savedTabs", "settings"]);
+      const tab = savedTabs.find((t) => t.id === msg.id);
       const filtered = savedTabs.filter((t) => t.id !== msg.id);
       await chrome.storage.local.set({ savedTabs: filtered });
+      if (tab) {
+        await queueRaindropDelete(tab, settings);
+      }
       return { ok: true };
     }
 
@@ -697,6 +809,24 @@ async function handleMessage(msg) {
     }
 
     case "clearSavedTabs": {
+      if (msg.deleteFromRaindrop) {
+        const { savedTabs = [], settings = DEFAULT_SETTINGS, raindropQueue = [] } =
+          await chrome.storage.local.get(["savedTabs", "settings", "raindropQueue"]);
+        if (hasRaindropConfig(settings)) {
+          // Clearing all saved tabs makes any pending create/updateTags work
+          // moot; keep existing deletes and add one per already-synced tab.
+          const keptDeletes = raindropQueue.filter(
+            (entry) => entry.action === "delete",
+          );
+          const newDeletes = savedTabs
+            .filter((tab) => tab.raindropId)
+            .map((tab) => makeRaindropDeleteQueueEntry(tab));
+          await chrome.storage.local.set({
+            raindropQueue: keptDeletes.concat(newDeletes),
+          });
+          if (newDeletes.length > 0) kickRaindropSync();
+        }
+      }
       await chrome.storage.local.set({ savedTabs: [] });
       return { ok: true };
     }
@@ -757,6 +887,44 @@ async function handleMessage(msg) {
       await applyIconAction(validated.iconAction);
       if (hasRaindropConfig(validated)) kickRaindropSync();
       return { ok: true };
+    }
+
+    case "syncSavedTabsToRaindrop": {
+      const {
+        savedTabs = [],
+        settings = DEFAULT_SETTINGS,
+        raindropQueue = [],
+      } = await chrome.storage.local.get([
+        "savedTabs",
+        "settings",
+        "raindropQueue",
+      ]);
+
+      if (!hasRaindropConfig(settings)) {
+        return { ok: false, reason: "not_configured" };
+      }
+
+      const queuedSavedIds = new Set(
+        raindropQueue
+          .filter((entry) => (entry.action || "create") === "create")
+          .map((entry) => entry.savedTabId),
+      );
+      const unsynced = savedTabs.filter(
+        (tab) => !tab.raindropSyncedAt && !queuedSavedIds.has(tab.id),
+      );
+
+      if (unsynced.length === 0) {
+        kickRaindropSync();
+        return { ok: true, queued: 0 };
+      }
+
+      await chrome.storage.local.set({
+        raindropQueue: raindropQueue.concat(
+          unsynced.map((tab) => makeRaindropQueueEntry(tab, settings)),
+        ),
+      });
+      kickRaindropSync();
+      return { ok: true, queued: unsynced.length };
     }
 
     case "getRaindropCollections": {

@@ -615,8 +615,13 @@ function isManageableTab(t) {
 }
 
 async function loadOpenTabs() {
-  const all = await chrome.tabs.query({});
+  const [all, groups] = await Promise.all([
+    chrome.tabs.query({}),
+    chrome.tabGroups.query({}),
+  ]);
   const manageable = all.filter(isManageableTab);
+
+  const groupMap = new Map(groups.map(g => [g.id, g]));
 
   const urlCounts = new Map();
   for (const t of manageable) {
@@ -625,19 +630,24 @@ async function loadOpenTabs() {
   }
 
   otState.tabs = manageable
-    .map(t => ({
-      tabId: t.id,
-      windowId: t.windowId,
-      index: t.index,
-      title: t.title || t.url,
-      url: t.url,
-      favIconUrl: t.favIconUrl || null,
-      domain: otDomain(t.url),
-      lastAccessed: t.lastAccessed || 0,
-      pinned: t.pinned,
-      active: t.active,
-      isDupe: urlCounts.get(t.url.replace(/\/$/, '')) > 1,
-    }));
+    .map(t => {
+      const group = t.groupId != null && t.groupId !== -1 ? groupMap.get(t.groupId) : null;
+      return {
+        tabId: t.id,
+        windowId: t.windowId,
+        index: t.index,
+        title: t.title || t.url,
+        url: t.url,
+        favIconUrl: t.favIconUrl || null,
+        domain: otDomain(t.url),
+        group: group ? (group.title || 'Unnamed group') : '',
+        groupColor: group ? group.color : '',
+        lastAccessed: t.lastAccessed || 0,
+        pinned: t.pinned,
+        active: t.active,
+        isDupe: urlCounts.get(t.url.replace(/\/$/, '')) > 1,
+      };
+    });
 
   // Purge stale selections
   const tabIdSet = new Set(otState.tabs.map(t => t.tabId));
@@ -688,13 +698,13 @@ function renderOpenTabs() {
   const body = document.getElementById('otBody');
 
   if (!otState.loaded) {
-    body.innerHTML = '<tr><td colspan="6" class="ot-empty">Loading…</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="ot-empty">Loading…</td></tr>';
     otUpdateBulkBar();
     return;
   }
 
   if (visible.length === 0) {
-    body.innerHTML = '<tr><td colspan="6" class="ot-empty">No tabs match.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="ot-empty">No tabs match.</td></tr>';
     otUpdateBulkBar();
     return;
   }
@@ -768,6 +778,18 @@ function otMakeRow(tab) {
   tdTitle.appendChild(titleRow);
   tdTitle.appendChild(urlEl);
   tr.appendChild(tdTitle);
+
+  // Group
+  const tdGroup = document.createElement('td');
+  tdGroup.className = 'ot-group-cell';
+  if (tab.groupColor) {
+    const chip = document.createElement('span');
+    chip.className = `ot-group-chip ot-group-${tab.groupColor}`;
+    chip.textContent = tab.group;
+    chip.title = `Group: ${tab.group}`;
+    tdGroup.appendChild(chip);
+  }
+  tr.appendChild(tdGroup);
 
   // Domain
   const tdDomain = document.createElement('td');

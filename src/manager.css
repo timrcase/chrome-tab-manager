@@ -676,6 +676,7 @@ body {
 .ot-col-pos     { width: 36px; }
 .ot-col-fav     { width: 28px; }
 .ot-col-title   { /* takes remaining width */ }
+.ot-col-group   { width: 140px; }
 .ot-col-domain  { width: 160px; }
 .ot-col-accessed{ width: 110px; }
 .ot-col-actions { width: 72px; }
@@ -792,6 +793,51 @@ body {
 }
 
 .ot-badge-dupe  { background: var(--accent-dim); color: var(--accent); }
+
+/* ─── Group column ──────────────────────────────────────────────────────────── */
+.ot-group-cell { overflow: hidden; }
+
+/* Chrome tab group colors — semantic Chrome values, not part of the design token
+   system. These are Chrome's dark-theme swatches (the tab strip renders the
+   lighter/pastel palette on dark UI), paired with a dark foreground like Chrome. */
+.ot-group-grey   { --ot-group-color: #dadce0; --ot-group-fg: #202124; }
+.ot-group-blue   { --ot-group-color: #8ab4f8; --ot-group-fg: #202124; }
+.ot-group-red    { --ot-group-color: #f28b82; --ot-group-fg: #202124; }
+.ot-group-yellow { --ot-group-color: #fdd663; --ot-group-fg: #202124; }
+.ot-group-green  { --ot-group-color: #81c995; --ot-group-fg: #202124; }
+.ot-group-pink   { --ot-group-color: #ff8bcb; --ot-group-fg: #202124; }
+.ot-group-purple { --ot-group-color: #c58af9; --ot-group-fg: #202124; }
+.ot-group-cyan   { --ot-group-color: #78d9ec; --ot-group-fg: #202124; }
+.ot-group-orange { --ot-group-color: #fcad70; --ot-group-fg: #202124; }
+
+/* Light-theme Chrome uses the saturated palette in the tab strip. Match it when
+   the user's OS/Chrome is in light mode so the chip color tracks what they see. */
+@media (prefers-color-scheme: light) {
+  .ot-group-grey   { --ot-group-color: #5f6368; --ot-group-fg: #fff; }
+  .ot-group-blue   { --ot-group-color: #1a73e8; --ot-group-fg: #fff; }
+  .ot-group-red    { --ot-group-color: #d93025; --ot-group-fg: #fff; }
+  .ot-group-yellow { --ot-group-color: #f9ab00; --ot-group-fg: #202124; }
+  .ot-group-green  { --ot-group-color: #1e8e3e; --ot-group-fg: #fff; }
+  .ot-group-pink   { --ot-group-color: #d01884; --ot-group-fg: #fff; }
+  .ot-group-purple { --ot-group-color: #a142f4; --ot-group-fg: #fff; }
+  .ot-group-cyan   { --ot-group-color: #007b83; --ot-group-fg: #fff; }
+  .ot-group-orange { --ot-group-color: #fa903e; --ot-group-fg: #202124; }
+}
+
+.ot-group-chip {
+  background: var(--ot-group-color);
+  border-radius: 3px;
+  color: var(--ot-group-fg);
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 1px 7px;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
 
 .ot-chk-cell { text-align: center; }
 

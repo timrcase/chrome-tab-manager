@@ -8,6 +8,11 @@ const DEFAULT_SETTINGS = {
   archiveEnabled: true,
   archivePurgeDays: 30,
   archiveStaleThresholdDays: 14,
+  raindropEnabled: false,
+  raindropToken: '',
+  raindropCollectionId: -1,
+  raindropCollectionTitle: 'Unsorted',
+  raindropDeleteSync: false,
 };
 
 const NUMBER_FIELDS = {
@@ -17,7 +22,10 @@ const NUMBER_FIELDS = {
   archiveStaleThresholdDays: { min: 0, max: 365 },
 };
 
-const TOGGLE_FIELDS = ['backupEnabled', 'backupIgnoreGroups', 'archiveEnabled'];
+const TOGGLE_FIELDS = ['backupEnabled', 'backupIgnoreGroups', 'archiveEnabled', 'raindropEnabled', 'raindropDeleteSync'];
+
+let raindropCollectionsLoaded = false;
+let raindropCollections = [];
 
 // ─── Load settings into form ──────────────────────────────────────────────────
 async function loadSettings() {
@@ -38,9 +46,14 @@ async function loadSettings() {
   document.getElementById('archiveEnabled').checked = s.archiveEnabled !== false;
   document.getElementById('archivePurgeDays').value = s.archivePurgeDays;
   document.getElementById('archiveStaleThresholdDays').value = s.archiveStaleThresholdDays;
+  document.getElementById('raindropEnabled').checked = s.raindropEnabled === true;
+  document.getElementById('raindropToken').value = s.raindropToken || '';
+  document.getElementById('raindropDeleteSync').checked = s.raindropDeleteSync === true;
+  renderRaindropSelection(s.raindropCollectionTitle || 'Unsorted');
 
   updateBackupRowVisibility();
   updateArchiveRowVisibility();
+  updateRaindropRowVisibility();
 }
 
 function updateBackupRowVisibility() {
@@ -57,6 +70,19 @@ function updateArchiveRowVisibility() {
   document.getElementById('archivePurgeRow').style.opacity = enabled ? '1' : '0.4';
   document.getElementById('archiveStaleThresholdDays').disabled = !enabled;
   document.getElementById('archivePurgeDays').disabled = !enabled;
+}
+
+function updateRaindropRowVisibility() {
+  const enabled = document.getElementById('raindropEnabled').checked;
+  const hasToken = document.getElementById('raindropToken').value.trim() !== '';
+  document.getElementById('raindropTokenRow').style.opacity = enabled ? '1' : '0.4';
+  document.getElementById('raindropCollectionRow').style.opacity = enabled ? '1' : '0.4';
+  document.getElementById('raindropToken').disabled = !enabled;
+  document.getElementById('chooseRaindropCollection').disabled = !enabled || !hasToken;
+  document.getElementById('refreshRaindropCollections').disabled = !enabled || !hasToken;
+  document.getElementById('showCreateRaindropCollection').disabled = !enabled || !hasToken;
+  document.getElementById('raindropDeleteSyncRow').style.opacity = enabled ? '1' : '0.4';
+  document.getElementById('raindropDeleteSync').disabled = !enabled;
 }
 
 // ─── Autosave ─────────────────────────────────────────────────────────────────
@@ -132,8 +158,27 @@ function bindToggleField(key) {
   });
 }
 
+function bindTextField(key) {
+  const input = document.getElementById(key);
+  const wrap = input.closest('.text-input-wrap');
+  input.addEventListener('change', async () => {
+    await saveField(key, input.value.trim());
+    flashSaved(wrap);
+    if (key === 'raindropToken') {
+      raindropCollectionsLoaded = false;
+      raindropCollections = [];
+      updateRaindropRowVisibility();
+      renderRaindropSelection('Unsorted');
+      await renderRaindropTree();
+      await saveField('raindropCollectionId', -1);
+      await saveField('raindropCollectionTitle', 'Unsorted');
+    }
+  });
+}
+
 Object.keys(NUMBER_FIELDS).forEach(bindNumberField);
 TOGGLE_FIELDS.forEach(bindToggleField);
+bindTextField('raindropToken');
 
 document.getElementById('defaultManagerPage').addEventListener('change', (e) => {
   saveField('defaultManagerPage', e.target.value);
@@ -145,10 +190,233 @@ document.getElementById('iconAction').addEventListener('change', (e) => {
 
 document.getElementById('backupEnabled').addEventListener('change', updateBackupRowVisibility);
 document.getElementById('archiveEnabled').addEventListener('change', updateArchiveRowVisibility);
+document.getElementById('raindropEnabled').addEventListener('change', () => {
+  updateRaindropRowVisibility();
+});
+
+// ─── Raindrop collections ────────────────────────────────────────────────────
+function showRaindropCollectionError(msg) {
+  const el = document.getElementById('raindropCollectionError');
+  const modalEl = document.getElementById('raindropCollectionModalError');
+  el.textContent = msg;
+  el.classList.toggle('visible', Boolean(msg));
+  modalEl.textContent = msg;
+  modalEl.hidden = !msg;
+}
+
+function renderRaindropSelection(title) {
+  document.getElementById('raindropCollectionTitle').textContent = title || 'Unsorted';
+}
+
+function getRaindropTree(collections) {
+  const byParent = new Map();
+  collections.forEach((collection) => {
+    const key = collection.parentId ?? null;
+    if (!byParent.has(key)) byParent.set(key, []);
+    byParent.get(key).push(collection);
+  });
+  byParent.forEach((items) => items.sort((a, b) => a.title.localeCompare(b.title)));
+
+  const tree = [];
+  const visit = (parentId, depth, ancestors = []) => {
+    const siblings = byParent.get(parentId) || [];
+    siblings.forEach((collection, index) => {
+      const isLast = index === siblings.length - 1;
+      tree.push({
+        ...collection,
+        ancestors,
+        depth,
+        hasChildren: (byParent.get(collection.id) || []).length > 0,
+        isLast,
+      });
+      visit(collection.id, depth + 1, ancestors.concat(!isLast));
+    });
+  };
+  visit(null, 0);
+
+  const included = new Set(tree.map((collection) => collection.id));
+  collections
+    .filter((collection) => !included.has(collection.id))
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .forEach((collection) => {
+      tree.push({
+        ...collection,
+        ancestors: [],
+        depth: 0,
+        hasChildren: false,
+        isLast: true,
+      });
+    });
+
+  return tree;
+}
+
+async function selectRaindropCollection(id, title) {
+  await saveField('raindropCollectionId', id);
+  await saveField('raindropCollectionTitle', title);
+  renderRaindropSelection(title);
+  renderRaindropTree(id);
+}
+
+async function renderRaindropTree(selectedId) {
+  const treeEl = document.getElementById('raindropCollectionTree');
+  const { settings = DEFAULT_SETTINGS } = await chrome.storage.local.get('settings');
+  const selected = String(selectedId ?? settings.raindropCollectionId ?? -1);
+  treeEl.innerHTML = '';
+
+  const unsorted = makeRaindropTreeRow({
+    id: -1,
+    title: 'Unsorted',
+    depth: 0,
+    hasChildren: false,
+    selected,
+  });
+  treeEl.appendChild(unsorted);
+
+  if (!raindropCollectionsLoaded) {
+    const empty = document.createElement('div');
+    empty.className = 'raindrop-tree-empty';
+    empty.textContent = 'Refresh to load your Raindrop collection tree.';
+    treeEl.appendChild(empty);
+    return;
+  }
+
+  getRaindropTree(raindropCollections).forEach((collection) => {
+    treeEl.appendChild(makeRaindropTreeRow({ ...collection, selected }));
+  });
+}
+
+function makeRaindropTreeRow(collection) {
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'raindrop-tree-row';
+  row.classList.toggle('selected', String(collection.id) === String(collection.selected));
+  row.style.setProperty('--depth', collection.depth);
+  row.onclick = async () => {
+    await selectRaindropCollection(collection.id, collection.title);
+    document.getElementById('raindropCollectionDialog').close();
+  };
+
+  const prefix = document.createElement('span');
+  prefix.className = 'raindrop-tree-prefix';
+  prefix.textContent = collection.depth > 0
+    ? `${'  '.repeat(collection.depth - 1)}∟`
+    : '';
+
+  const title = document.createElement('span');
+  title.className = 'raindrop-tree-title';
+  title.textContent = collection.title;
+
+  const meta = document.createElement('span');
+  meta.className = 'raindrop-tree-meta';
+  meta.textContent = collection.hasChildren ? 'group' : 'collection';
+
+  row.append(prefix, title);
+  if (collection.id !== -1) row.appendChild(meta);
+  return row;
+}
+
+async function loadRaindropCollections() {
+  const btn = document.getElementById('refreshRaindropCollections');
+  showRaindropCollectionError('');
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+
+  try {
+    const res = await chrome.runtime.sendMessage({ action: 'getRaindropCollections' });
+    if (!res?.ok) throw new Error(res?.error || 'Could not load collections.');
+    raindropCollections = res.collections || [];
+    raindropCollectionsLoaded = true;
+    await renderRaindropTree();
+  } catch (err) {
+    showRaindropCollectionError(err.message || 'Could not load collections.');
+  } finally {
+    btn.textContent = 'Refresh';
+    updateRaindropRowVisibility();
+  }
+}
+
+async function openRaindropCollectionDialog() {
+  showRaindropCollectionError('');
+  document.getElementById('raindropCollectionDialog').showModal();
+  await renderRaindropTree();
+  if (!raindropCollectionsLoaded) loadRaindropCollections();
+}
+
+document.getElementById('chooseRaindropCollection').addEventListener('click', openRaindropCollectionDialog);
+
+document.getElementById('refreshRaindropCollections').addEventListener('click', loadRaindropCollections);
+
+document.getElementById('closeRaindropCollection').addEventListener('click', () => {
+  document.getElementById('raindropCollectionDialog').close();
+});
+
+document.getElementById('doneRaindropCollection').addEventListener('click', () => {
+  document.getElementById('raindropCollectionDialog').close();
+});
+
+document.getElementById('raindropCollectionDialog').addEventListener('close', () => {
+  document.getElementById('raindropCreateRow').hidden = true;
+  document.getElementById('raindropNewCollectionName').value = '';
+  showRaindropCollectionError('');
+});
+
+document.getElementById('showCreateRaindropCollection').addEventListener('click', () => {
+  document.getElementById('raindropCreateRow').hidden = false;
+  document.getElementById('raindropNewCollectionName').focus();
+});
+
+document.getElementById('cancelCreateRaindropCollection').addEventListener('click', () => {
+  document.getElementById('raindropCreateRow').hidden = true;
+  document.getElementById('raindropNewCollectionName').value = '';
+  showRaindropCollectionError('');
+});
+
+document.getElementById('createRaindropCollection').addEventListener('click', async () => {
+  const nameInput = document.getElementById('raindropNewCollectionName');
+  const createBtn = document.getElementById('createRaindropCollection');
+  const title = nameInput.value.trim();
+  if (!title) {
+    showRaindropCollectionError('Collection name required.');
+    return;
+  }
+
+  showRaindropCollectionError('');
+  createBtn.disabled = true;
+  createBtn.textContent = 'Creating…';
+  try {
+    const res = await chrome.runtime.sendMessage({ action: 'createRaindropCollection', title });
+    if (!res?.ok) throw new Error(res?.error || 'Could not create collection.');
+    const { collection } = res;
+    raindropCollections.push(collection);
+    raindropCollectionsLoaded = true;
+    await selectRaindropCollection(collection.id, collection.title);
+    document.getElementById('raindropCreateRow').hidden = true;
+    nameInput.value = '';
+    document.getElementById('raindropCollectionDialog').close();
+  } catch (err) {
+    showRaindropCollectionError(err.message || 'Could not create collection.');
+  } finally {
+    createBtn.disabled = false;
+    createBtn.textContent = 'Create';
+  }
+});
+
+document.getElementById('raindropNewCollectionName').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('createRaindropCollection').click();
+  } else if (e.key === 'Escape') {
+    document.getElementById('cancelCreateRaindropCollection').click();
+  }
+});
 
 // ─── Storage management ───────────────────────────────────────────────────────
 document.getElementById('exportData').addEventListener('click', async () => {
   const data = await chrome.storage.local.get(['savedTabs', 'backupList', 'archiveList', 'settings']);
+  if (data.settings) {
+    data.settings = { ...data.settings, raindropToken: '' };
+  }
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -247,6 +515,18 @@ dropZone.addEventListener('drop', (e) => {
 
 confirmImportBtn.addEventListener('click', async () => {
   if (!pendingImport) return;
+  const current = await chrome.storage.local.get('settings');
+  const currentSettings = current.settings || {};
+  if (pendingImport.settings) {
+    pendingImport.settings = {
+      ...pendingImport.settings,
+      raindropEnabled: currentSettings.raindropEnabled === true,
+      raindropToken: currentSettings.raindropToken || '',
+      raindropCollectionId: currentSettings.raindropCollectionId ?? -1,
+      raindropCollectionTitle: currentSettings.raindropCollectionTitle || 'Unsorted',
+      raindropDeleteSync: currentSettings.raindropDeleteSync === true,
+    };
+  }
   await chrome.storage.local.set(pendingImport);
   importDialog.close();
   location.reload();

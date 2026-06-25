@@ -16,6 +16,8 @@ A Chrome extension for power users who accumulate tabs. Save, tag, back up, and 
 
 **Storage usage** — Options page shows a live breakdown of storage used by saved tabs, archive, and backups against Chrome's 10 MB local storage limit.
 
+**Raindrop integration** — Optionally send saved tabs to Raindrop.io using a token you provide in Options.
+
 ## Installation
 
 > [!TIP]
@@ -36,7 +38,8 @@ Load unpacked from Chrome:
 | Open Tab Manager                   | Right-click extension icon → Open Tab Manager |
 | Cleanup duplicates / stale tabs    | Right-click extension icon → Cleanup Tabs     |
 | Configure backup, archive, cleanup | Options page (⚙ button in header)             |
+| Enable Raindrop sync               | Options page → Raindrop                       |
 
 ## Privacy
 
-All data stays on your device. No external servers. See [PRIVACY.md](PRIVACY.md).
+All data stays on your device unless you enable the optional Raindrop integration. See [PRIVACY.md](PRIVACY.md).

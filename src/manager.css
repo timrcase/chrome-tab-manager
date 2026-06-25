@@ -277,9 +277,11 @@ body {
   background: none;
   border: 0;
   cursor: pointer;
-  display: inline;
+  display: block;
   font-family: inherit;
+  max-width: 100%;
   padding: 0;
+  text-align: left;
 }
 
 .item-open-target:hover {
@@ -297,6 +299,25 @@ body {
 
 .item-meta .btn-sm {
   flex-shrink: 0;
+}
+
+.raindrop-status {
+  align-items: center;
+  color: var(--accent);
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  margin-right: -4px;
+  width: 16px;
+}
+
+.raindrop-status .ui-icon {
+  height: 15px;
+  width: 15px;
+}
+
+.raindrop-status-failed {
+  color: var(--danger);
 }
 
 
@@ -861,6 +882,77 @@ body {
   width: 13px;
 }
 
+
+/* ─── Modal ─────────────────────────────────────────────────────────────────── */
+.modal {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  inset: 0;
+  margin: auto;
+  max-width: 420px;
+  padding: 0;
+  width: calc(100% - 32px);
+}
+.modal::backdrop { background: rgba(0, 0, 0, 0.6); }
+
+.modal-header {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 18px;
+}
+.modal-title {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 4px;
+  transition: color 0.15s;
+}
+.modal-close:hover { color: var(--text); }
+
+.modal-body { padding: 18px; }
+.modal-text {
+  color: var(--text);
+  font-size: 13px;
+  margin: 0;
+}
+
+.modal-check {
+  align-items: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  gap: 8px;
+  margin-top: 16px;
+}
+.modal-check input {
+  accent-color: var(--accent);
+  cursor: pointer;
+  height: 14px;
+  margin: 0;
+  width: 14px;
+}
+
+.modal-actions {
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 14px 18px;
+}
 
 /* ─── Scrollbar ─────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
